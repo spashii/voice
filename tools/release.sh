@@ -76,6 +76,16 @@ xcodebuild -project app/Voice.xcodeproj -scheme Voice -configuration Release \
   MARKETING_VERSION=$version CURRENT_PROJECT_VERSION=$version CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="$identity" OTHER_CODE_SIGN_FLAGS="$signFlags" build
 app=$out/xcode/Build/Products/Release/Voice.app
+# voice-cli ships inside the app, so `voice-cli retry-report` and the rest run against the
+# installed version: Contents/Helpers/voice-cli, loading the app's own whisper framework.
+(cd Core && swift build -c release --product voice-cli)
+mkdir -p $app/Contents/Helpers
+cp Core/.build/release/voice-cli $app/Contents/Helpers/voice-cli
+install_name_tool -add_rpath @executable_path/../Frameworks -delete_rpath @loader_path \
+  $app/Contents/Helpers/voice-cli
+for rpath in $(otool -l $app/Contents/Helpers/voice-cli | awk '/LC_RPATH/ {getline; getline; print $2}'); do
+  [[ $rpath == /Applications/Xcode* ]] && install_name_tool -delete_rpath $rpath $app/Contents/Helpers/voice-cli
+done
 # Notarization needs every piece of code signed with the Developer ID, the hardened runtime
 # and a timestamp, and Xcode signs the frameworks it embeds but not the helpers inside
 # Sparkle's. So it is signed inside out: Sparkle's helpers in the order its documentation
@@ -95,6 +105,7 @@ for framework in $app/Contents/Frameworks/*(N); do
   fi
   sign $framework
 done
+sign $app/Contents/Helpers/voice-cli
 sign $app
 codesign --verify --deep --strict $app
 

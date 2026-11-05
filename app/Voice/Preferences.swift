@@ -35,6 +35,9 @@ final class Preferences {
     var whisperModel: WhisperModel { didSet { save(whisperModel.rawValue, "whisperModel") } }
     /// Forever by default: past dictations are the test set for whisper and the prompt.
     var history: History { didSet { save(history.rawValue, "history") } }
+    /// Decodes the segments whisper was least sure of a second time, within half the first
+    /// decode's time. On by default.
+    var retrySegments: Bool { didSet { UserDefaults.standard.set(retrySegments, forKey: "retrySegments") } }
     /// Not in Settings: Ollama is on this Mac on its own port, and nothing else is expected.
     let ollamaURL: String
 
@@ -48,6 +51,7 @@ final class Preferences {
         keyTerms = defaults.string(forKey: "keyTerms") ?? Self.defaultKeyTerms
         whisperModel = defaults.string(forKey: "whisperModel").flatMap(WhisperModel.init) ?? .largeV3Turbo
         history = defaults.string(forKey: "history").flatMap(History.init) ?? .forever
+        retrySegments = defaults.object(forKey: "retrySegments") as? Bool ?? true
         ollamaURL = defaults.string(forKey: "ollamaURL") ?? "http://127.0.0.1:11434"
     }
 
@@ -60,12 +64,14 @@ final class Preferences {
 
     /// The key terms open whisper's prompt: on a set of real dictations that took exactly
     /// spelled names from 5 of 13 to 9 of 13 at no measurable cost. Fallback stays at
-    /// whisper.cpp's defaults and segment retries stay off: on the same dictations neither
-    /// changed a word.
+    /// whisper.cpp's defaults. Segment retries follow the switch, with SegmentRetry's
+    /// threshold and budget: on open test sets beam 5 with the previous text cut errors
+    /// by 28%, and every segment keeps a record so the app can measure them on real use.
     var whisper: WhisperOptions {
         var options = WhisperOptions()
         options.language = language
         options.keyTerms = keyTerms.split(whereSeparator: { $0 == "," || $0.isNewline }).map(String.init)
+        options.retry.enabled = retrySegments
         return options
     }
 

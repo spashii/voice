@@ -55,6 +55,8 @@ struct SettingsView: View {
                     }
                 }
                 SpeechModelStatus(whisperModel: preferences.whisperModel)
+                Toggle("Retry unsure segments", isOn: $preferences.retrySegments)
+                Help("Words whisper was unsure of are transcribed again, more carefully. This can add a moment before the paste.")
             }
 
             CallsSettingsSection()

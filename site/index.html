@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Voice: dictation and call transcripts on your Mac</title>
-<meta name="description" content="Voice turns speech into text on your Mac with Whisper: dictate into any app with one shortcut, transcribe both sides of a call, and let your agents read it over MCP. Free and open source, for macOS.">
-<meta property="og:title" content="Voice: dictation and call transcripts on your Mac">
-<meta property="og:description" content="Press Option+` anywhere, speak, and the text is pasted. Whisper runs on your Mac, so no audio goes to a server.">
+<title>Voice: live transcripts of your online calls, made on your Mac</title>
+<meta name="description" content="Voice transcribes your online calls live on your Mac, with you and the other side kept apart, lets your agents read along over MCP, and does dictation. Free and open source, for macOS.">
+<meta property="og:title" content="Voice: live transcripts of your online calls, made on your Mac">
+<meta property="og:description" content="Zoom, Meet, Teams and Discord written down as they happen, you and the other side kept apart, and readable by your agents. Whisper runs on your Mac.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
   :root {
@@ -31,7 +31,7 @@
   .meta { margin-top: 16px; font-size: 14px; color: var(--muted); }
   kbd { font: 600 .9em var(--sans); padding: 1px 6px; border-radius: 6px; background: var(--card); box-shadow: var(--ring); }
 
-  /* The dictation pill and the menu bar menu, drawn rather than pictured. */
+  /* The "Record this call?" pill and the transcript it leads to, drawn rather than pictured. */
   .shot { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .pill { justify-self: center; display: flex; align-items: center; gap: 10px; max-width: 100%; padding: 10px 16px; border-radius: 999px; background: rgba(28,26,25,.92); color: #fff; font-size: 14px; box-shadow: var(--ring-lg); }
   .pill .rec { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
@@ -46,11 +46,25 @@
   .label { padding: 8px 10px 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
   .sep { height: 1px; margin: 6px 10px; background: var(--line); }
   .clip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill .ask { flex: none; white-space: nowrap; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.14); font-size: 13px; }
+  @media (max-width: 420px) { .pill .app { display: none; } }
+  .pill .phone { flex: none; width: 14px; height: 14px; fill: #34c759; }
+  .pill .app { flex: none; color: rgba(255,255,255,.55); }
+  .line { display: grid; grid-template-columns: 44px 40px 1fr; gap: 6px; padding: 5px 10px; }
+  .line time { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; padding-top: 1px; }
+  .line b { font-weight: 600; }
+  .line.me b { color: var(--accent); }
 
   .points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding-bottom: 72px; }
   .point { background: var(--card); border-radius: 16px; box-shadow: var(--ring); padding: 24px; }
   .point h2 { font-size: 17px; letter-spacing: -.01em; }
   .point p { margin-top: 6px; color: var(--muted); font-size: 15px; }
+
+  .why, .rough { max-width: 640px; }
+  .why { padding-bottom: 56px; font-size: 19px; }
+  .rough { padding-bottom: 72px; color: var(--muted); font-size: 15px; }
+  .rough p + p { margin-top: 12px; }
+  .rough h2 { font-size: 17px; letter-spacing: -.01em; color: var(--fg); margin-bottom: 6px; }
 
   .bottom { text-align: center; padding: 0 0 96px; }
   .bottom p { color: var(--muted); }
@@ -63,6 +77,8 @@
     .hero { grid-template-columns: minmax(0, 1fr); gap: 40px; padding: 56px 0 48px; }
     h1 { font-size: 42px; }
     .points { grid-template-columns: 1fr; }
+    .why { font-size: 17px; padding-bottom: 40px; }
+    .rough { padding-bottom: 56px; }
   }
 </style>
 </head>
@@ -70,8 +86,8 @@
 <main>
   <section class="hero">
     <div>
-      <h1>Speak, and it is typed.</h1>
-      <p class="lede">Press <kbd>Option+`</kbd> in any app, talk, press it again, and the text is pasted. Whisper runs on your Mac, so no audio goes to a server.</p>
+      <h1>Live transcripts of your online calls, made on your Mac.</h1>
+      <p class="lede">Voice writes down Zoom, Meet, Teams and Discord calls as they happen, with you and the other side kept apart. Your agents can read along. It does dictation too.</p>
       <div class="actions">
         <a class="button primary" href="https://apps.idea2prod.in/voice/download">Download for Mac</a>
         <a class="button" href="https://github.com/spashii/voice">View on GitHub</a>
@@ -79,36 +95,44 @@
       <p class="meta">Free and open source · Apple silicon, macOS 15 or later</p>
     </div>
 
-    <div class="shot" role="img" aria-label="Voice's pill showing live text while you dictate, above its menu bar menu with recent dictations and a call">
-      <div class="pill"><span class="rec"></span><span class="time">0:07</span><span class="text">Let's move the launch to Thursday and send the notes</span></div>
+    <div class="shot" role="img" aria-label="Voice asking Record this call? when Zoom has used the microphone for a few seconds, above the live transcript with Me and Call on separate lines">
+      <div class="pill"><svg class="phone" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><span class="text">Record this call?</span><span class="app">Zoom</span><span class="ask">Not now</span><span class="ask">Record</span></div>
       <div class="panel">
-        <div class="row status">Listening 0:07</div>
-        <div class="row on"><span>Stop and paste</span></div>
+        <div class="row status"><span>Zoom call, live</span><small>12:04</small></div>
         <div class="sep"></div>
-        <div class="label">Recent</div>
-        <div class="row"><span class="clip">Can you look at the second draft before lunch?</span><small>2 min</small></div>
-        <div class="row"><span class="clip">The numbers for October are in the shared folder.</span><small>1 h</small></div>
-        <div class="row"><span class="clip">Zoom call, Me and Call</span><small>42 min</small></div>
+        <div class="line"><time>11:42</time><b>Call</b><span>Are the October numbers in yet?</span></div>
+        <div class="line me"><time>11:47</time><b>Me</b><span>Yes, they're in the shared folder.</span></div>
+        <div class="line"><time>11:55</time><b>Call</b><span>Then let's move the launch to Thursday.</span></div>
+        <div class="line me"><time>12:01</time><b>Me</b><span>Okay, I'll send the notes after this.</span></div>
         <div class="sep"></div>
-        <div class="row"><span>Settings…</span><small>⌘,</small></div>
-        <div class="row"><span>Quit Voice</span></div>
+        <div class="row status"><span>Claude Code is following this call</span></div>
       </div>
     </div>
   </section>
 
+  <section class="why">
+    <p>There are a lot of dictation apps. I lost recordings in them (one wrong key and a long take was gone), and none wrote down my online calls with both sides apart or let my agents read a call while it was still going. So I built Voice, and all of it stays on my Mac.</p>
+  </section>
+
   <section class="points">
     <div class="point">
-      <h2>Dictate anywhere</h2>
-      <p><kbd>Option+`</kbd> starts and stops. The words appear while you speak and are pasted where you were typing. Nothing is lost, even in a crash.</p>
+      <h2>Online calls, both sides apart</h2>
+      <p>With a <a href="https://spashii.github.io/blend">Blend</a> split mix, you're transcribed as Me and everyone else as Call, each side as it pauses. Voice asks when an online call starts, or press <kbd>Option+Shift+`</kbd>.</p>
     </div>
     <div class="point">
-      <h2>Calls, both sides</h2>
-      <p>With a <a href="https://github.com/spashii/blend">Blend</a> mix, Voice transcribes you and the call separately and live, as Me and Call.</p>
+      <h2>Your agents read along</h2>
+      <p>Claude Code and other agents follow an online call live, search past ones and read your dictations over MCP, on 127.0.0.1 with a token.</p>
     </div>
     <div class="point">
-      <h2>Your agents read it</h2>
-      <p>Claude Code and other agents search dictations and follow a live call over MCP, with a token.</p>
+      <h2>No key throws a recording away</h2>
+      <p>No Escape, no timeout, and the audio is on disk as you speak. After a crash or a quit, the next launch finds the recording and transcribes it.</p>
     </div>
+  </section>
+
+  <section class="rough">
+    <h2>Dictation, and how it works</h2>
+    <p>Press <kbd>Option+`</kbd> in any text field, talk, and press it again. Your words show in a pill as you speak and are pasted when you stop. Whisper large v3 turbo runs on your Mac's GPU, with your key terms (names it would get wrong) in its prompt. Voice keeps Whisper's confidence for each segment and can decode the doubtful ones again. The gain on open test sets was small, about 7.5% fewer errors.</p>
+    <p><b>Rough edges:</b> Apple silicon only. Both sides of an online call need Blend; without it Voice hears only your mic. The speech model is a 1.6 GB download. A dictation during an online call waits behind the call's transcription.</p>
   </section>
 
   <section class="bottom">
@@ -119,6 +143,6 @@
     <p class="brew">Or with Homebrew: <code>brew tap spashii/voice https://github.com/spashii/voice</code>, then <code>brew trust spashii/voice</code>, then <code>brew install --cask voice</code></p>
   </section>
 </main>
-<footer class="site">Voice is MIT licensed. <a href="https://github.com/spashii/voice">Source on GitHub</a></footer>
+<footer class="site">Made by <a href="https://github.com/spashii">Sameer</a>. MIT licensed. <a href="https://github.com/spashii/voice">Source on GitHub</a></footer>
 </body>
 </html>

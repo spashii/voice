@@ -7,6 +7,14 @@
     <language>en</language>
     <!-- tools/release.sh adds each release below this line. -->
     <item>
+      <title>Voice 0.6.0</title>
+      <pubDate>Thu, 05 Nov 2026 10:09:39 +0000</pubDate>
+      <sparkle:version>0.6.0</sparkle:version>
+      <sparkle:shortVersionString>0.6.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/spashii/voice/releases/download/v0.6.0/Voice-0.6.0.dmg" sparkle:edSignature="qGbplRiFcozLqqp5F49LuHQKYQWdH5OJPnexp+dstSwLSmvZkWlkOuU7vClRezPb76oHPUVJPSwcUGKEGl/jDw==" length="10268766" type="application/octet-stream"/>
+    </item>
+    <item>
       <title>Voice 0.5.0</title>
       <pubDate>Thu, 05 Nov 2026 09:53:17 +0000</pubDate>
       <sparkle:version>0.5.0</sparkle:version>

@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Voice: speak, and it is typed</title>
-<meta name="description" content="Voice turns your speech into text on your Mac. Press Option+`, talk, and the words are typed where your cursor is. Whisper runs on your Mac. Free and open source, for macOS.">
-<meta property="og:title" content="Voice: speak, and it is typed">
-<meta property="og:description" content="Press Option+`, talk, and the words are typed where your cursor is. Whisper runs on your Mac, so nothing leaves it.">
+<title>Voice: dictation and call transcripts on your Mac</title>
+<meta name="description" content="Voice turns speech into text on your Mac with Whisper: dictate into any app with one shortcut, transcribe both sides of a call, and let your agents read it over MCP. Free and open source, for macOS.">
+<meta property="og:title" content="Voice: dictation and call transcripts on your Mac">
+<meta property="og:description" content="Press Option+` anywhere, speak, and the text is pasted. Whisper runs on your Mac, so no audio goes to a server.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
   :root {
     --bg: #f8f7f6; --card: #fff; --fg: #0c0b0b; --muted: #6f6b69; --line: #ebe8e6;
-    --accent: #ff5733; --accent-2: #ffa53f; --red: #ff3b30;
+    --accent: #ff5f33; --red: #ff3b30;
     --ring: 0 2px 6px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.05);
     --ring-lg: 0 30px 60px -28px rgba(40,20,10,.3), 0 0 0 1px rgba(0,0,0,.05);
     --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
@@ -24,23 +24,28 @@
   .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 56px; align-items: center; padding: 96px 0 72px; }
   .hero > * { min-width: 0; }
   h1 { font-size: 56px; line-height: 1.05; letter-spacing: -.035em; font-weight: 700; }
-  .lede { margin-top: 20px; font-size: 19px; color: var(--muted); max-width: 30ch; }
+  .lede { margin-top: 20px; font-size: 19px; color: var(--muted); max-width: 32ch; }
   .actions { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
   .button { display: inline-block; padding: 12px 20px; border-radius: 12px; font-weight: 600; text-decoration: none; box-shadow: var(--ring); background: var(--card); }
-  .button.primary { background: linear-gradient(var(--accent-2), var(--accent)); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.25); }
+  .button.primary { background: linear-gradient(#ff7a3d, #f04f24); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.25); }
   .meta { margin-top: 16px; font-size: 14px; color: var(--muted); }
-  kbd { font: 600 .9em var(--sans); padding: 1px 6px; border-radius: 6px; background: var(--card); box-shadow: var(--ring); white-space: nowrap; }
+  kbd { font: 600 .9em var(--sans); padding: 1px 6px; border-radius: 6px; background: var(--card); box-shadow: var(--ring); }
 
-  /* The pill that shows your words as you speak, and the field they land in. Drawn, not pictured. */
-  .shot { display: grid; gap: 28px; justify-items: center; }
-  .pill { display: flex; align-items: center; gap: 10px; max-width: 100%; padding: 11px 18px; border-radius: 999px; background: rgba(28,26,25,.94); color: #fff; font-size: 14px; box-shadow: var(--ring-lg); }
-  .pill .rec { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 3px rgba(255,59,48,.25); }
-  .pill .time { flex: none; color: rgba(255,255,255,.55); font-variant-numeric: tabular-nums; }
+  /* The dictation pill and the menu bar menu, drawn rather than pictured. */
+  .shot { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .pill { justify-self: center; display: flex; align-items: center; gap: 10px; max-width: 100%; padding: 10px 16px; border-radius: 999px; background: rgba(28,26,25,.92); color: #fff; font-size: 14px; box-shadow: var(--ring-lg); }
+  .pill .rec { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+  .pill .time { flex: none; color: rgba(255,255,255,.6); font-variant-numeric: tabular-nums; }
   .pill .text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .field { width: 100%; background: var(--card); border-radius: 16px; box-shadow: var(--ring-lg); padding: 18px 20px; font-size: 15px; line-height: 1.55; }
-  .field .to { color: var(--muted); font-size: 13px; padding-bottom: 10px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
-  .field .to b { color: var(--fg); font-weight: 600; }
-  .caret { display: inline-block; width: 2px; height: 1.1em; margin-left: 1px; vertical-align: -.2em; background: var(--accent); }
+  .panel { background: rgba(255,255,255,.92); border-radius: 14px; box-shadow: var(--ring-lg); padding: 8px; font-size: 14px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 10px; border-radius: 6px; }
+  .row small { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .row.status { color: var(--muted); }
+  .row.on { background: var(--accent); color: #fff; }
+  .row.on small { color: rgba(255,255,255,.8); }
+  .label { padding: 8px 10px 2px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .sep { height: 1px; margin: 6px 10px; background: var(--line); }
+  .clip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding-bottom: 72px; }
   .point { background: var(--card); border-radius: 16px; box-shadow: var(--ring); padding: 24px; }
@@ -66,7 +71,7 @@
   <section class="hero">
     <div>
       <h1>Speak, and it is typed.</h1>
-      <p class="lede">Press <kbd>Option+`</kbd>, talk, and your words appear where your cursor is. Whisper runs on your Mac.</p>
+      <p class="lede">Press <kbd>Option+`</kbd> in any app, talk, press it again, and the text is pasted. Whisper runs on your Mac, so no audio goes to a server.</p>
       <div class="actions">
         <a class="button primary" href="https://github.com/spashii/voice/releases/latest">Download for Mac</a>
         <a class="button" href="https://github.com/spashii/voice">View on GitHub</a>
@@ -74,11 +79,19 @@
       <p class="meta">Free and open source · Apple silicon, macOS 15 or later</p>
     </div>
 
-    <div class="shot" role="img" aria-label="Voice's pill showing live text while you speak, above a message where the same words are being typed">
-      <div class="pill"><span class="rec"></span><span class="time">0:06</span><span class="text">and send the notes to Priya before lunch</span></div>
-      <div class="field">
-        <div class="to">To <b>Priya Natarajan</b></div>
-        <div>Let's move the launch to Thursday and send the notes to Priya before lunch<span class="caret"></span></div>
+    <div class="shot" role="img" aria-label="Voice's pill showing live text while you dictate, above its menu bar menu with recent dictations and a call">
+      <div class="pill"><span class="rec"></span><span class="time">0:07</span><span class="text">Let's move the launch to Thursday and send the notes</span></div>
+      <div class="panel">
+        <div class="row status">Listening 0:07</div>
+        <div class="row on"><span>Stop and paste</span></div>
+        <div class="sep"></div>
+        <div class="label">Recent</div>
+        <div class="row"><span class="clip">Can you look at the second draft before lunch?</span><small>2 min</small></div>
+        <div class="row"><span class="clip">The numbers for October are in the shared folder.</span><small>1 h</small></div>
+        <div class="row"><span class="clip">Zoom call, Me and Call</span><small>42 min</small></div>
+        <div class="sep"></div>
+        <div class="row"><span>Settings…</span><small>⌘,</small></div>
+        <div class="row"><span>Quit Voice</span></div>
       </div>
     </div>
   </section>
@@ -86,20 +99,20 @@
   <section class="points">
     <div class="point">
       <h2>Dictate anywhere</h2>
-      <p>One shortcut starts and stops. Your words show live and are typed when you finish. Your own key terms keep names spelled right.</p>
+      <p><kbd>Option+`</kbd> starts and stops. The words appear while you speak and are pasted where you were typing. Nothing is lost, even in a crash.</p>
     </div>
     <div class="point">
-      <h2>Online calls, both sides</h2>
-      <p>With a <a href="https://spashii.github.io/blend">Blend</a> mix, Voice records a Zoom, Meet, Teams or Discord call and transcribes you and them live.</p>
+      <h2>Calls, both sides</h2>
+      <p>With a <a href="https://github.com/spashii/blend">Blend</a> mix, Voice transcribes you and the call separately and live, as Me and Call.</p>
     </div>
     <div class="point">
       <h2>Your agents read it</h2>
-      <p>Claude Code, Codex or any MCP client on your Mac can search your dictations and follow a call as it happens.</p>
+      <p>Claude Code and other agents search dictations and follow a live call over MCP, with a token.</p>
     </div>
   </section>
 
   <section class="bottom">
-    <p>Everything stays on your Mac: no account, no cloud. Voice goes online only to download the speech model once and to check for updates.</p>
+    <p>Your audio never leaves your Mac: no accounts, no analytics. Voice goes online only to download the speech model and to check for updates.</p>
     <div class="actions">
       <a class="button primary" href="https://github.com/spashii/voice/releases/latest">Download for Mac</a>
     </div>

@@ -62,6 +62,13 @@ Serve terminates TLS and connects from 127.0.0.1, so the token is what keeps oth
 | `list_dictations` | dictations newest first; `since`, `limit` |
 | `get_dictation` | one dictation with raw and final text, timings and segments |
 | `start_recording`, `stop_recording` | record a call from the source in Settings, Calls, and stop it once the last words are transcribed; only the app can, so `voice-cli mcp` answers with an error |
+| `correct_dictation` | `id`, `text`: stores the correction beside the dictation's text, which reads and search then return with `corrected: true` and `original_text`, and pastes nothing |
+| `correct_segment` | `call_id`, `segment_id` (the `id` from `get_transcript` in format segments), `text`: the same for one segment of a call |
+| `list_key_terms` | the key terms from Settings, with the tokens they take of whisper's prompt, counted with whisper.cpp's tokenizer, and its limit of 224 |
+| `add_key_terms` | `terms`: adds those not already listed in any case, refusing the whole add when the prompt would pass 224 tokens and naming the tokens left and the terms that fit |
+| `remove_key_terms` | `terms`: removes them from the list, matching without case |
+| `list_edits` | `since`, `target`, `limit`: every correction, key-term change and tag change agents made, newest first, with time, client, kind, target, before and after |
+| `undo_edit` | `id`: reverts one edit, putting a correction back to the text before it and a key-term or tag change back as it was, and records the undo as an edit |
 
 `since` takes ISO 8601 (`2026-11-04T09:00:00Z`, or `2026-11-04` for local midnight) or a span back from now (`90m`, `24h`, `7d`).
 

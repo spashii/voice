@@ -1,6 +1,6 @@
 cask "voice" do
   version "0.2.0"
-  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+  sha256 "bd075b4b0cc8237cac5b8b5984227ce1696313ece328897f679e5520fcf52574"
 
   url "https://github.com/spashii/voice/releases/download/v#{version}/Voice-#{version}.dmg"
   name "Voice"

@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+build/
+fixtures/
+app/Voice.xcodeproj/
+app/Voice/Info.plist
+app/Voice/Voice.entitlements
+eval/
+eval-data/

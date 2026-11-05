@@ -1,0 +1,85 @@
+name: Voice
+options:
+  bundleIdPrefix: io.github.spashii
+  deploymentTarget:
+    macOS: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+    ARCHS: arm64
+    # tools/build.sh and tools/release.sh set these from the VERSION file.
+    MARKETING_VERSION: "0.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+packages:
+  # Records, transcribes, cleans up and stores; shared with voice-cli.
+  VoiceCore:
+    path: ../Core
+  # The global shortcuts, and the fields that record them in Settings.
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    exactVersion: 3.1.0
+  # Updates: checks the appcast on the website and installs signed releases.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.1
+targets:
+  Voice:
+    type: application
+    platform: macOS
+    sources:
+      - path: Voice
+        excludes: ["*.entitlements"]
+      # Shipped inside the app, as the licenses of the included libraries require.
+      - path: ../LICENSE
+        buildPhase: resources
+      - path: ../THIRD_PARTY_NOTICES.md
+        buildPhase: resources
+    info:
+      path: Voice/Info.plist
+      properties:
+        CFBundleDisplayName: Voice
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: "15.0"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: Free software under the MIT License.
+        NSMicrophoneUsageDescription: Voice records your microphone while you dictate.
+        SUFeedURL: https://spashii.github.io/voice/appcast.xml
+        # Updates must be signed with the matching private key, kept with the Developer ID.
+        SUPublicEDKey: YLvPSGEaYiPsXphy/q9LCDGs2s0qp8hM2LVBIWbl78c=
+    entitlements:
+      path: Voice/Voice.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.spashii.voice
+        # Voice/AppIcon.icon is an Icon Composer icon. actool compiles it into Assets.car
+        # for macOS 26 and an AppIcon.icns for macOS 15; XcodeGen types it wrapper.icon,
+        # which Xcode still routes to actool.
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Ad hoc unless tools/build.sh or tools/release.sh passes an identity.
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+        # Off while builds are signed with a self-signed certificate: the hardened runtime
+        # won't load the embedded whisper framework under a certificate without a team.
+        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_DEBUG_DYLIB: NO
+      configs:
+        # Only tools/release.sh builds Release, always with the Developer ID, and
+        # notarization needs the hardened runtime. Xcode otherwise adds the debugger
+        # entitlement, which notarization rejects.
+        Release:
+          ENABLE_HARDENED_RUNTIME: YES
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+    dependencies:
+      - package: VoiceCore
+        product: VoiceCore
+      - package: KeyboardShortcuts
+      - package: Sparkle
+      - sdk: AppKit.framework
+      - sdk: AVFoundation.framework
+      - sdk: ServiceManagement.framework

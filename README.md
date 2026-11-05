@@ -2,9 +2,9 @@
 
 A Mac app that transcribes your online calls live, with you and the other side kept apart, and lets your agents read along. It does dictation too. Everything runs on your Mac.
 
-There are a lot of dictation apps. I built Voice for three things I couldn't get from them:
+I wanted really fast transcription on my own Whisper pipeline, one I could hack on. [Handy](https://handy.computer) and [OpenSuperWhisper](https://github.com/Starmel/OpenSuperWhisper) are my favorites and I learned a lot from them, but I wanted something simpler, and I needed three more things:
 
-- **Online calls, both sides apart.** Zoom, Meet, Teams, Discord and other online calls are transcribed while they happen, you as Me and everyone else as Call. This uses a split mix from [Blend](https://github.com/spashii/blend).
+- **Online calls, both sides apart.** Zoom, Meet, Teams, Discord and other online calls are transcribed while they happen, you as Me and everyone else as Call. This uses a split mix from [Blend](https://apps.idea2prod.in/blend/). While it records, the call pill shows the last three lines.
 - **Agents that read along.** Claude Code and other agents can follow an online call live, search past ones and read dictations, over MCP.
 - **No lost recordings.** I lost recordings in other apps to one wrong key. In Voice no key throws a recording away, and a recording cut off by a crash or a quit is transcribed at the next launch.
 

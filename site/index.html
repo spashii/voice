@@ -73,6 +73,15 @@
   code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; background: var(--card); padding: 2px 6px; border-radius: 6px; box-shadow: var(--ring); }
   footer.site { border-top: 1px solid var(--line); padding: 24px; text-align: center; font-size: 14px; color: var(--muted); }
 
+  .callpill { justify-self: center; width: min(100%, 460px); display: grid; gap: 6px; padding: 12px 18px; border-radius: 22px; background: rgba(28,26,25,.92); color: #fff; font-size: 14px; box-shadow: var(--ring-lg); }
+  .callpill .head { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .callpill .rec { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
+  .callpill .time, .callpill .hint { color: rgba(255,255,255,.6); font-variant-numeric: tabular-nums; }
+  .callpill .cl { display: grid; grid-template-columns: 36px 1fr; gap: 6px; }
+  .callpill .cl.old { opacity: .45; }
+  .callpill b { font-weight: 600; }
+  .callpill .me { color: #64a8ff; }
+  .callpill .call { color: #c48cff; }
   @media (max-width: 780px) {
     .hero { grid-template-columns: minmax(0, 1fr); gap: 40px; padding: 56px 0 48px; }
     h1 { font-size: 42px; }
@@ -87,7 +96,7 @@
   <section class="hero">
     <div>
       <h1>Live transcripts of your online calls, made on your Mac.</h1>
-      <p class="lede">Voice writes down Zoom, Meet, Teams and Discord calls as they happen, with you and the other side kept apart. Your agents can read along. It does dictation too.</p>
+      <p class="lede">Voice writes down Zoom, Meet, Teams and Discord calls as they happen, with you and the other side kept apart. Your agents can read along. It does fast dictation too.</p>
       <div class="actions">
         <a class="button primary" href="https://apps.idea2prod.in/voice/download">Download for Mac</a>
         <a class="button" href="https://github.com/spashii/voice">View on GitHub</a>
@@ -95,44 +104,39 @@
       <p class="meta">Free and open source · Apple silicon, macOS 15 or later</p>
     </div>
 
-    <div class="shot" role="img" aria-label="Voice asking Record this call? when Zoom has used the microphone for a few seconds, above the live transcript with Me and Call on separate lines">
-      <div class="pill"><svg class="phone" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z"/></svg><span class="text">Record this call?</span><span class="app">Zoom</span><span class="ask">Not now</span><span class="ask">Record</span></div>
-      <div class="panel">
-        <div class="row status"><span>Zoom call, live</span><small>12:04</small></div>
-        <div class="sep"></div>
-        <div class="line"><time>11:42</time><b>Call</b><span>Are the October numbers in yet?</span></div>
-        <div class="line me"><time>11:47</time><b>Me</b><span>Yes, they're in the shared folder.</span></div>
-        <div class="line"><time>11:55</time><b>Call</b><span>Then let's move the launch to Thursday.</span></div>
-        <div class="line me"><time>12:01</time><b>Me</b><span>Okay, I'll send the notes after this.</span></div>
-        <div class="sep"></div>
-        <div class="row status"><span>Claude Code is following this call</span></div>
+    <div class="shot" role="img" aria-label="Voice's call pill while it records an online call, showing the last three lines labelled Me and Call">
+      <div class="callpill">
+        <div class="head"><span class="rec"></span><span>Recording call</span><span class="time">12:04</span><span class="hint">&#x2325;&#x21E7;` stops</span></div>
+        <div class="cl old"><b class="me">Me</b><span>Yes, they're in the shared folder.</span></div>
+        <div class="cl"><b class="call">Call</b><span>Then let's move the launch to Thursday.</span></div>
+        <div class="cl"><b class="me">Me</b><span>Okay, I'll send the notes after this.</span></div>
       </div>
     </div>
   </section>
 
   <section class="why">
-    <p>There are a lot of dictation apps. I lost recordings in them (one wrong key and a long take was gone), and none wrote down my online calls with both sides apart or let my agents read a call while it was still going. So I built Voice, and all of it stays on my Mac.</p>
+    <p>I wanted really fast transcription on my own Whisper pipeline, one I could hack on. <a href="https://handy.computer">Handy</a> and <a href="https://github.com/Starmel/OpenSuperWhisper">OpenSuperWhisper</a> are my favorites and I learned a lot from them, but I wanted something simpler. With Blend, Voice also hears both sides of an online call, so it writes down you and them separately.</p>
   </section>
 
   <section class="points">
     <div class="point">
       <h2>Online calls, both sides apart</h2>
-      <p>With a <a href="https://spashii.github.io/blend">Blend</a> split mix, you're transcribed as Me and everyone else as Call, each side as it pauses. Voice asks when an online call starts, or press <kbd>Option+Shift+`</kbd>.</p>
+      <p>With a <a href="https://apps.idea2prod.in/blend/">Blend</a> split mix, you're Me and everyone else is Call. Voice asks when an online call starts, or press <kbd>Option+Shift+`</kbd>.</p>
     </div>
     <div class="point">
       <h2>Your agents read along</h2>
-      <p>Claude Code and other agents follow an online call live, search past ones and read your dictations over MCP, on 127.0.0.1 with a token.</p>
+      <p>Claude Code and other agents follow an online call live and search past ones over MCP.</p>
     </div>
     <div class="point">
       <h2>No key throws a recording away</h2>
-      <p>No Escape, no timeout, and the audio is on disk as you speak. After a crash or a quit, the next launch finds the recording and transcribes it.</p>
+      <p>The audio is on disk as you speak. After a crash or a quit, the next launch transcribes it.</p>
     </div>
   </section>
 
   <section class="rough">
     <h2>Dictation, and how it works</h2>
-    <p>Press <kbd>Option+`</kbd> in any text field, talk, and press it again. Your words show in a pill as you speak and are pasted when you stop. Whisper large v3 turbo runs on your Mac's GPU, with your key terms (names it would get wrong) in its prompt. Voice keeps Whisper's confidence for each segment and can decode the doubtful ones again. The gain on open test sets was small, about 7.5% fewer errors.</p>
-    <p><b>Rough edges:</b> Apple silicon only. Both sides of an online call need Blend; without it Voice hears only your mic. The speech model is a 1.6 GB download. A dictation during an online call waits behind the call's transcription.</p>
+    <p>Press <kbd>Option+`</kbd> in any text field, talk, and press it again. Whisper large v3 turbo runs on your Mac with your key terms in its prompt, and Voice decodes the segments it's unsure of a second time and shows you what each retry changed.</p>
+    <p><b>Rough edges:</b> Apple silicon only. Both sides of an online call need Blend. The speech model is a 1.6 GB download.</p>
   </section>
 
   <section class="bottom">

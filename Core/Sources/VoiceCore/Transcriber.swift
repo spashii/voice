@@ -381,7 +381,7 @@ public final class Transcriber: @unchecked Sendable {
     }
 
     /// whisper.cpp and ggml log every step to stderr; VOICE_WHISPER_LOG=1 keeps them.
-    private static func silenceLogs() {
+    static func silenceLogs() {
         guard ProcessInfo.processInfo.environment["VOICE_WHISPER_LOG"] == nil else { return }
         whisper_log_set({ _, _, _ in }, nil)
     }

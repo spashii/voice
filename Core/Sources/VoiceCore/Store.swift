@@ -37,6 +37,11 @@ public struct Dictation: Sendable, Codable, Identifiable {
     public var error: String?
     /// Where the recording came from, when it wasn't a dictation that finished normally.
     public var origin: Origin? = nil
+    /// The text it had before an agent corrected it, when `finalText` is the correction.
+    /// Whisper's own text stays in `rawText` either way.
+    public var originalText: String? = nil
+
+    public var corrected: Bool { originalText != nil }
 
     public enum Origin: String, Sendable, Codable {
         /// Found on disk without a history row at launch, after a crash, a force quit or a
@@ -251,8 +256,9 @@ public final class Store: @unchecked Sendable {
         queue.sync {
             var statement: OpaquePointer?
             guard sqlite3_prepare_v2(db, """
-                SELECT id, created_at, audio_path, duration, mode, whisper_model, raw_text, final_text,
-                       cleanup_model, error, origin FROM dictations WHERE duration >= ?
+                SELECT id, created_at, audio_path, duration, mode, whisper_model, raw_text,
+                       coalesce(corrected_text, final_text), cleanup_model, error, origin
+                FROM dictations WHERE duration >= ?
                 ORDER BY created_at DESC LIMIT ?
                 """, -1, &statement, nil) == SQLITE_OK else { return [] }
             defer { sqlite3_finalize(statement) }

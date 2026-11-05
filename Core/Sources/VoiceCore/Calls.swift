@@ -67,6 +67,10 @@ public struct CallSegment: Sendable, Codable, Equatable, Identifiable {
     public var noSpeechProb: Double?
     public var compressionRatio: Double?
     public var createdAt: Date
+    /// Whisper's text, when an agent has corrected the segment and `text` is the correction.
+    public var originalText: String? = nil
+
+    public var corrected: Bool { originalText != nil }
 }
 
 /// What the recorder knows when a call starts.
@@ -166,6 +170,8 @@ public struct SearchHit: Sendable, Codable, Equatable {
     public var startMs: Int?
     /// The matching text, with the matched words in [brackets].
     public var snippet: String
+    /// True when the match is in an agent's correction; nil otherwise, so it is left out.
+    public var corrected: Bool? = nil
 }
 
 public enum CallTranscript {

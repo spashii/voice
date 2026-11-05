@@ -22,8 +22,9 @@ public enum MCPServerError: Error, CustomStringConvertible {
 
 /// MCP over Streamable HTTP, for agents to read calls and dictations: JSON-RPC posted to
 /// /mcp on 127.0.0.1, every request carrying the bearer token. Each POST gets one JSON
-/// answer, with no event stream and no session, both of which the spec leaves optional;
-/// that keeps a 60 second wait_for_transcript on its own request without holding up others.
+/// answer, with no event stream, which the spec leaves optional; that keeps a 60 second
+/// wait_for_transcript on its own request without holding up others. The session id only
+/// carries the client's name, for the edits it makes; nothing is kept per session.
 ///
 /// It is written on Network.framework rather than the MCP Swift SDK (0.12.1): the SDK's HTTP
 /// server transports leave the listener to the host, so this would be needed anyway, and its
@@ -41,12 +42,17 @@ public final class MCPServer: @unchecked Sendable {
     private var connections: [ObjectIdentifier: HTTPConnection] = [:]
 
     /// `recordingUnavailable` is what start_recording and stop_recording answer when there
-    /// is no `recording` to call.
+    /// is no `recording` to call. `keyTerms` is where the key-term tools read and write; with
+    /// none they answer with an error. Their token counts use whisper.cpp's tokenizer on the
+    /// speech model on disk unless `tokenizer` stands in for it.
     public init(store: CallStore, token: String, port: UInt16 = defaultPort, recording: (any RecordingControl)? = nil,
                 recordingUnavailable: String = "Recording is only available in the Voice app; this server runs from voice-cli.",
+                keyTerms: (any KeyTermsSettings)? = nil, tokenizer: (any PromptTokenizer)? = nil,
                 version: String = "0") {
         router = MCPRouter(store: store, recording: recording, recordingUnavailable: recordingUnavailable,
-                           version: version)
+                           version: version,
+                           keyTerms: keyTerms.map { KeyTermsEditor(settings: $0, tokenizer: tokenizer ?? WhisperTokenizer(),
+                                                                   store: store) })
         self.token = Data(token.utf8)
         requestedPort = port
     }
@@ -133,8 +139,13 @@ public final class MCPServer: @unchecked Sendable {
         if let version = request.headers["mcp-protocol-version"], !MCPRouter.protocolVersions.contains(version) {
             return .error(400, "Unsupported MCP-Protocol-Version \(version).")
         }
-        let (status, body) = await router.handle(request.body)
-        return body.map { HTTPResponse.json(status, $0) } ?? HTTPResponse(status: status)
+        // Clients send the session id initialize gave them; one that sends none is named by
+        // its User-Agent instead.
+        let client = request.headers["mcp-session-id"].flatMap(MCPRouter.client(session:))
+            ?? request.headers["user-agent"].map { "user-agent \($0.prefix(100))" }
+        let (status, body) = await router.handle(request.body, client: client)
+        let session = MCPRouter.session(initializing: request.body).map { [("Mcp-Session-Id", $0)] } ?? []
+        return body.map { HTTPResponse.json(status, $0, headers: session) } ?? HTTPResponse(status: status)
     }
 
     private func authorized(_ request: HTTPRequest) -> Bool {

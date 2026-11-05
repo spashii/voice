@@ -5,7 +5,8 @@ import VoiceCore
 //
 //   voice-cli mcp [--port N] [--db PATH]
 //       serves MCP on 127.0.0.1 (port 7766) against the app's database until stopped, for
-//       when Voice isn't running; the two can't both hold the port
+//       when Voice isn't running; the two can't both hold the port. Key-term changes go to
+//       the app's defaults, which a running Voice watches
 //   voice-cli fake-call [--every SECONDS] [--count N] [--db PATH]
 //       records nothing: writes a live call that gains a scripted segment every few
 //       seconds, to test wait_for_transcript; prints the call's id, finishes it at the end
@@ -56,7 +57,7 @@ private func log(_ message: String) {
 private func serve(_ database: URL, port: UInt16) async throws {
     let store = try CallStore(url: database)
     let token = try MCPToken.load()
-    let server = MCPServer(store: store, token: token, port: port, version: "voice-cli")
+    let server = MCPServer(store: store, token: token, port: port, keyTerms: AppDefaultsKeyTerms(), version: "voice-cli")
     let bound = try await server.start()
     log("MCP at http://127.0.0.1:\(bound)\(MCPServer.endpointPath) on \(database.path); token in \(MCPToken.file.path)")
     while true {

@@ -10,7 +10,9 @@ struct MCPRouter: Sendable {
     static let instructions = """
         Voice keeps this Mac's dictations and recorded calls. In call transcripts "Me:" is the \
         Mac's owner and "Call:" is everyone else. To follow a live call, call wait_for_transcript \
-        again and again, each time passing the cursor it returned, until ended is true.
+        again and again, each time passing the cursor it returned, until ended is true. Corrections, \
+        key-term changes and tag changes are recorded as edits: list_edits shows them, undo_edit \
+        reverts one.
         """
 
     /// Each message in a batch can be a 60 s wait, so a batch is kept short.
@@ -20,10 +22,13 @@ struct MCPRouter: Sendable {
     let recording: (any RecordingControl)?
     let recordingUnavailable: String
     let version: String
+    /// Where key-term changes go; nil where there is no app to change them for.
+    var keyTerms: KeyTermsEditor? = nil
 
     /// The HTTP status and body for one POST. Notifications and responses get 202 and no
-    /// body; a batch gets an array of answers.
-    func handle(_ body: Data) async -> (Int, Data?) {
+    /// body; a batch gets an array of answers. `client` names the MCP client in the edits
+    /// its writes record.
+    func handle(_ body: Data, client: String? = nil) async -> (Int, Data?) {
         guard let message = try? JSONSerialization.jsonObject(with: body) else {
             return (400, Self.encode(Self.failure(id: NSNull(), code: -32700, "Parse error: the body isn't JSON.")))
         }
@@ -38,16 +43,16 @@ struct MCPRouter: Sendable {
             var answers: [Any] = []
             // The client is gone when the task is cancelled, so the rest would go unread.
             for item in batch where !Task.isCancelled {
-                if let answer = await answer(item) { answers.append(answer) }
+                if let answer = await answer(item, client: client) { answers.append(answer) }
             }
             return answers.isEmpty ? (202, nil) : (200, Self.encode(answers))
         }
-        guard let answer = await answer(message) else { return (202, nil) }
+        guard let answer = await answer(message, client: client) else { return (202, nil) }
         return (200, Self.encode(answer))
     }
 
     /// The answer to one message, or nil when it was a notification or a response.
-    private func answer(_ message: Any) async -> [String: Any]? {
+    private func answer(_ message: Any, client: String?) async -> [String: Any]? {
         guard let object = message as? [String: Any] else {
             return Self.failure(id: NSNull(), code: -32600, "A JSON-RPC message is an object.")
         }
@@ -59,7 +64,7 @@ struct MCPRouter: Sendable {
         guard let id = object["id"] else { return nil }
         let params = object["params"] as? [String: Any] ?? [:]
         do {
-            let result = try await call(method, params)
+            let result = try await call(method, params, client: client)
             return ["jsonrpc": "2.0", "id": id, "result": result]
         } catch let error as RPCError {
             return Self.failure(id: id, code: error.code, error.message)
@@ -68,7 +73,7 @@ struct MCPRouter: Sendable {
         }
     }
 
-    private func call(_ method: String, _ params: [String: Any]) async throws -> Any {
+    private func call(_ method: String, _ params: [String: Any], client: String?) async throws -> Any {
         switch method {
         case "initialize":
             let asked = params["protocolVersion"] as? String
@@ -92,7 +97,7 @@ struct MCPRouter: Sendable {
             }
             let arguments = Arguments(params["arguments"] as? [String: Any] ?? [:])
             do {
-                return Self.content(try await tool(name, arguments))
+                return Self.content(try await tool(name, arguments, client: client))
             } catch let error as ToolError {
                 return Self.content(error.message, isError: true)
             } catch {
@@ -117,7 +122,7 @@ struct MCPRouter: Sendable {
     // MARK: Tools
 
     /// The tool's answer: text for a transcript, JSON for everything else.
-    private func tool(_ name: String, _ args: Arguments) async throws -> String {
+    private func tool(_ name: String, _ args: Arguments, client: String?) async throws -> String {
         switch name {
         case "list_calls":
             let calls = try store.calls(since: try args.date("since"), tag: try args.string("tag"),
@@ -137,7 +142,7 @@ struct MCPRouter: Sendable {
             let channel = try args.channel("channel")
             switch try args.string("format") ?? "text" {
             case "text":
-                return Self.transcriptText(call, try store.transcript(call.id, channel: channel))
+                return try transcriptText(call, try store.transcript(call.id, channel: channel))
             case "segments":
                 let segments = try store.segments(call.id, channel: channel)
                     .sorted { ($0.startMs, $0.id) < ($1.startMs, $1.id) }
@@ -172,8 +177,10 @@ struct MCPRouter: Sendable {
 
         case "tag_call":
             let id = try args.require("id")
-            let tags = try store.tagCall(id, add: try args.strings("add"), remove: try args.strings("remove"))
-            let object: [String: Any] = ["id": id, "tags": tags]
+            let (tags, edit) = try store.tagCall(id, add: try args.strings("add"), remove: try args.strings("remove"),
+                                                 client: client)
+            var object: [String: Any] = ["id": id, "tags": tags]
+            if let edit { object["edit_id"] = edit.id }
             return try Self.json(object)
 
         case "list_dictations":
@@ -184,7 +191,52 @@ struct MCPRouter: Sendable {
         case "get_dictation":
             let id = try args.require("id")
             guard let dictation = try store.dictation(id) else { throw ToolError("No dictation \(id).") }
-            return try Self.json(try Self.plain(dictation))
+            return try Self.json(try Self.full(dictation))
+
+        case "correct_dictation":
+            let (dictation, edit) = try store.correctDictation(try args.require("id"), text: try args.require("text"),
+                                                               client: client)
+            var object = try Self.full(dictation)
+            object["edit_id"] = edit.id
+            return try Self.json(object)
+
+        case "correct_segment":
+            let call = try requireCall(try args.require("call_id"))
+            guard let segmentID = try args.int64("segment_id") else { throw ToolError("segment_id is required.") }
+            let (segment, edit) = try store.correctSegment(call.id, segmentID, text: try args.require("text"),
+                                                           client: client)
+            var object = Self.compact(segment)
+            object["call_id"] = call.id
+            object["edit_id"] = edit.id
+            return try Self.json(object)
+
+        case "list_key_terms":
+            return try Self.json(Self.plain(try await requireKeyTerms().list()))
+
+        case "add_key_terms":
+            let change = try await requireKeyTerms().add(try args.strings("terms"), client: client)
+            return try Self.json(Self.plain(change, changed: "added", unchanged: "already_present"))
+
+        case "remove_key_terms":
+            let change = try await requireKeyTerms().remove(try args.strings("terms"), client: client)
+            return try Self.json(Self.plain(change, changed: "removed", unchanged: "not_found"))
+
+        case "list_edits":
+            let edits = try store.edits(since: try args.date("since"), target: try args.string("target"),
+                                        limit: try args.int("limit", default: 20, range: 1...200))
+            return try Self.json(try edits.map { try Self.plain($0) })
+
+        case "undo_edit":
+            guard let id = try args.int64("id") else { throw ToolError("id is required.") }
+            guard let edit = try store.edit(id) else { throw ToolError("No edit \(id).") }
+            let undo: Edit
+            switch edit.kind {
+            case .addKeyTerms, .removeKeyTerms:
+                undo = try await requireKeyTerms().undo(id, client: client)
+            default:
+                undo = try store.undo(id, client: client)
+            }
+            return try Self.json(try Self.plain(undo))
 
         case "start_recording":
             guard let recording else { throw ToolError(recordingUnavailable) }
@@ -199,6 +251,11 @@ struct MCPRouter: Sendable {
         default:
             throw RPCError(-32602, "No tool \(name).")
         }
+    }
+
+    private func requireKeyTerms() throws -> KeyTermsEditor {
+        guard let keyTerms else { throw ToolError("Key terms can't be changed from this server.") }
+        return keyTerms
     }
 
     private func requireCall(_ id: String) throws -> Call {
@@ -254,7 +311,7 @@ struct MCPRouter: Sendable {
                  ["query": ["type": "string", "description": "Words to find; all must match, or failing that any."],
                   "limit": limit(20, 100)],
                  required: ["query"]),
-            tool("tag_call", "Add or remove tags on a call and get its tags back.",
+            tool("tag_call", "Add or remove tags on a call and get its tags back. A change is recorded as an edit.",
                  ["id": ["type": "string", "description": "The call's id."],
                   "add": ["type": "array", "items": ["type": "string"]],
                   "remove": ["type": "array", "items": ["type": "string"]]],
@@ -263,10 +320,75 @@ struct MCPRouter: Sendable {
                  ["since": since, "limit": limit(20, 200)]),
             tool("get_dictation", "Get one dictation by id with its raw and final text, timings and segments.",
                  ["id": ["type": "string", "description": "The dictation's id."]], required: ["id"]),
+            tool("correct_dictation",
+                 "Correct a dictation's text. The original is kept: reads and search return the correction with corrected: true and original_text. Nothing is pasted again; the correction is an edit undo_edit can revert.",
+                 ["id": ["type": "string", "description": "The dictation's id."],
+                  "text": ["type": "string", "description": "The whole corrected text. The original text clears the correction."]],
+                 required: ["id", "text"], readOnly: false),
+            tool("correct_segment",
+                 "Correct one segment of a call's transcript, by the segment id get_transcript gives in format segments. The original is kept: reads and search return the correction with corrected: true and original_text.",
+                 ["call_id": callID,
+                  "segment_id": ["type": "integer", "minimum": 1, "description": "The segment's id."],
+                  "text": ["type": "string", "description": "The segment's whole corrected text. The original text clears the correction."]],
+                 required: ["call_id", "segment_id", "text"], readOnly: false),
+            tool("list_key_terms",
+                 "List the key terms from Voice's Settings, the names and words whisper is told to spell as given, with the tokens they take of whisper's prompt and its limit."),
+            tool("add_key_terms",
+                 "Add key terms to Voice's Settings, skipping any already there in any case. If whisper's prompt would pass its token limit nothing is added, and the answer says how many tokens are left and which terms fit.",
+                 ["terms": ["type": "array", "items": ["type": "string"], "description": "The terms, spelled as whisper should write them."]],
+                 required: ["terms"], readOnly: false),
+            tool("remove_key_terms", "Remove key terms from Voice's Settings, matching without case.",
+                 ["terms": ["type": "array", "items": ["type": "string"]]],
+                 required: ["terms"], readOnly: false),
+            tool("list_edits",
+                 "List the writes agents made, newest first: when, which client, what kind, the target, and its before and after.",
+                 ["since": since, "target": ["type": "string", "description": "Only edits to this target, such as dictation:ID, call:ID/segment:N, call:ID or key_terms."],
+                  "limit": limit(20, 200)]),
+            tool("undo_edit",
+                 "Undo one edit by its id: a correction goes back to the text before it, a key-term add or remove and a tag change are reverted. The undo is recorded as an edit too.",
+                 ["id": ["type": "integer", "minimum": 1, "description": "The edit's id from list_edits."]],
+                 required: ["id"], readOnly: false),
             tool("start_recording", "Start recording a call in the Voice app and get the new call's id.",
                  ["title": ["type": "string", "description": "A title for the call."]], readOnly: false),
             tool("stop_recording", "Stop the call recording in progress in the Voice app.", readOnly: false),
         ]
+    }
+
+    // MARK: Sessions
+
+    /// The Mcp-Session-Id to answer an initialize with: the client's name and version from
+    /// clientInfo, base64url encoded, then a random part. The client sends it with every
+    /// request after, so an edit can name its client with no session kept here, and the name
+    /// survives a restart of the server. Nil when the body isn't an initialize.
+    static func session(initializing body: Data) -> String? {
+        guard body.range(of: Data("initialize".utf8)) != nil,
+              let object = try? JSONSerialization.jsonObject(with: body) else { return nil }
+        let messages = (object as? [Any]) ?? [object]
+        guard let initialize = messages.lazy.compactMap({ $0 as? [String: Any] })
+            .first(where: { $0["method"] as? String == "initialize" }) else { return nil }
+        let info = (initialize["params"] as? [String: Any])?["clientInfo"] as? [String: Any] ?? [:]
+        let name = String((info["name"] as? String ?? "unnamed").prefix(100))
+        let version = String((info["version"] as? String ?? "").prefix(50))
+        guard let json = try? JSONSerialization.data(withJSONObject: ["n": name, "v": version], options: [.sortedKeys])
+        else { return nil }
+        let encoded = json.base64EncodedString().replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        let random = (0..<8).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined()
+        return "v1.\(encoded).\(random)"
+    }
+
+    /// `name version` from a session id `session(initializing:)` made, else nil.
+    static func client(session: String) -> String? {
+        let parts = session.split(separator: ".")
+        guard parts.count == 3, parts[0] == "v1" else { return nil }
+        var base64 = parts[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+        base64 += String(repeating: "=", count: (4 - base64.count % 4) % 4)
+        guard let data = Data(base64Encoded: base64),
+              let info = try? JSONSerialization.jsonObject(with: data) as? [String: String],
+              let name = info["n"] else { return nil }
+        let printable = { (text: String) in String(text.unicodeScalars.filter { $0.value >= 0x20 && $0.value != 0x7f }) }
+        let version = printable(info["v"] ?? "")
+        return version.isEmpty ? printable(name) : "\(printable(name)) \(version)"
     }
 
     // MARK: Resources
@@ -294,13 +416,15 @@ struct MCPRouter: Sendable {
         guard let call else {
             throw RPCError(-32002, id == "current" ? "No call is being recorded." : "Resource not found: \(uri).")
         }
-        return Self.transcriptText(call, try store.transcript(call.id))
+        return try transcriptText(call, try store.transcript(call.id))
     }
 
     // MARK: Encoding
 
-    private static func transcriptText(_ call: Call, _ transcript: String) -> String {
-        let head = "\(call.title ?? "Call") (\(call.status.rawValue), started \(iso(call.startedAt)), id \(call.id))"
+    private func transcriptText(_ call: Call, _ transcript: String) throws -> String {
+        let corrected = try store.correctedSegments(call.id)
+        let note = corrected == 0 ? "" : ", \(corrected) segment\(corrected == 1 ? "" : "s") corrected"
+        let head = "\(call.title ?? "Call") (\(call.status.rawValue), started \(Self.iso(call.startedAt)), id \(call.id)\(note))"
         return head + "\n\n" + (transcript.isEmpty ? "(nothing transcribed yet)" : transcript)
     }
 
@@ -332,10 +456,17 @@ struct MCPRouter: Sendable {
         return try JSONSerialization.jsonObject(with: encoder.encode(value)) as? [String: Any] ?? [:]
     }
 
-    /// What an agent following a call needs of a segment.
+    /// What an agent following a call needs of a segment; the id is what correct_segment takes.
     private static func compact(_ segment: CallSegment) -> [String: Any] {
-        ["id": segment.id, "channel": segment.channel.rawValue, "start_ms": segment.startMs, "end_ms": segment.endMs,
-         "text": segment.text.trimmingCharacters(in: .whitespacesAndNewlines)]
+        var object: [String: Any] = [
+            "id": segment.id, "channel": segment.channel.rawValue, "start_ms": segment.startMs,
+            "end_ms": segment.endMs, "text": segment.text.trimmingCharacters(in: .whitespacesAndNewlines),
+        ]
+        if let original = segment.originalText {
+            object["corrected"] = true
+            object["original_text"] = original.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return object
     }
 
     private static func summary(_ dictation: Dictation) -> [String: Any] {
@@ -344,8 +475,28 @@ struct MCPRouter: Sendable {
             "mode": dictation.mode.rawValue, "text": dictation.finalText,
         ]
         if dictation.rawText != dictation.finalText { object["raw_text"] = dictation.rawText }
+        if let original = dictation.originalText {
+            object["corrected"] = true
+            object["original_text"] = original
+        }
         if let error = dictation.error { object["error"] = error }
         if let origin = dictation.origin { object["origin"] = origin.rawValue }
+        return object
+    }
+
+    /// A dictation with everything, and corrected: true when original_text is there.
+    private static func full(_ dictation: Dictation) throws -> [String: Any] {
+        var object = try plain(dictation)
+        if dictation.corrected { object["corrected"] = true }
+        return object
+    }
+
+    private static func plain(_ change: KeyTermsChange, changed: String? = nil, unchanged: String? = nil) -> [String: Any] {
+        var object: [String: Any] = ["terms": change.terms, "tokens": change.tokens ?? NSNull(),
+                                     "token_limit": change.limit ?? NSNull()]
+        if let changed { object[changed] = change.changed }
+        if let unchanged { object[unchanged] = change.unchanged }
+        if let edit = change.edit { object["edit_id"] = edit.id }
         return object
     }
 

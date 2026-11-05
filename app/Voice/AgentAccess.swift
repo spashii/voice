@@ -30,6 +30,8 @@ final class AgentAccess {
 
     /// What start_recording and stop_recording go through; set before launch.
     @ObservationIgnored var recording: (any RecordingControl)?
+    /// Where agents' key-term changes go: Preferences, so Settings shows them as they land.
+    @ObservationIgnored var keyTerms: (any KeyTermsSettings)?
     @ObservationIgnored private var server: MCPServer?
     /// Counts starts and stops, so a start that finishes after the switch moved again is dropped.
     @ObservationIgnored private var generation = 0
@@ -64,12 +66,13 @@ final class AgentAccess {
         status = .starting
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
         let recording = recording
+        let keyTerms = keyTerms
         Task {
             do {
                 // Opening the store can migrate the database; that stays off the main thread.
                 let server = try await Task.detached {
                     MCPServer(store: try CallStore(url: Paths.database), token: try MCPToken.load(),
-                              recording: recording, version: version)
+                              recording: recording, keyTerms: keyTerms, version: version)
                 }.value
                 try await server.start()
                 guard current == generation else { return server.stop() }

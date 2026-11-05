@@ -8,8 +8,8 @@ public final class CallStore: @unchecked Sendable {
     /// speech, so half a second adds little delay, and the query is one indexed lookup.
     public static let pollInterval: Duration = .milliseconds(500)
 
-    private let db: SQLiteConnection
-    private let queue = DispatchQueue(label: "voice.calls")
+    let db: SQLiteConnection
+    let queue = DispatchQueue(label: "voice.calls")
 
     public init(url: URL) throws {
         // Store owns the dictation tables. Opening it first means they exist before the
@@ -247,22 +247,23 @@ public final class CallStore: @unchecked Sendable {
     }
 
     /// A call's segments in the order they were written, after the cursor, from one channel
-    /// or all of them.
+    /// or all of them. A corrected segment's text is the correction, with whisper's beside it.
     public func segments(_ callID: String, channel: CallSegment.Channel? = nil, after cursor: Int64 = 0,
                          limit: Int = -1) throws -> [CallSegment] {
         try queue.sync {
             try db.query("""
-                SELECT id, call_id, channel, start_ms, end_ms, text, avg_logprob, no_speech_prob,
-                       compression_ratio, created_at
+                SELECT \(Self.segmentColumns)
                 FROM call_segments WHERE call_id = ? AND id > ? AND (?3 IS NULL OR channel = ?3)
                 ORDER BY id LIMIT ?
-                """, [callID, cursor, channel?.rawValue, limit]) { row in
-                CallSegment(id: row.int64(0), callID: row.text(1),
-                            channel: CallSegment.Channel(rawValue: row.text(2)) ?? .mix, startMs: row.int(3),
-                            endMs: row.int(4), text: row.text(5), avgLogprob: row.optionalDouble(6),
-                            noSpeechProb: row.optionalDouble(7), compressionRatio: row.optionalDouble(8),
-                            createdAt: row.date(9))
-            }
+                """, [callID, cursor, channel?.rawValue, limit], Self.readSegment)
+        }
+    }
+
+    /// One segment by its id, if it belongs to that call.
+    public func segment(_ callID: String, _ segmentID: Int64) throws -> CallSegment? {
+        try queue.sync {
+            try db.query("SELECT \(Self.segmentColumns) FROM call_segments WHERE call_id = ? AND id = ?",
+                         [callID, segmentID], Self.readSegment).first
         }
     }
 
@@ -493,6 +494,52 @@ public final class CallStore: @unchecked Sendable {
             CREATE INDEX segment_retries_created ON segment_retries(created_at);
             CREATE INDEX segment_retries_flagged ON segment_retries(created_at) WHERE flagged = 1;
             """),
+        // An agent's correction sits beside whisper's text and never replaces it: reads and
+        // the search index take corrected_text when it is set. Every write an agent makes
+        // over MCP is an edit, with what it changed, so it can be listed and undone. old_value
+        // and new_value are JSON, shaped by kind; undone_by and undoes link an undo to its edit.
+        ("edits-1", """
+            ALTER TABLE dictations ADD COLUMN corrected_text TEXT;
+            ALTER TABLE call_segments ADD COLUMN corrected_text TEXT;
+            CREATE TABLE edits (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              created_at REAL NOT NULL,
+              client TEXT,
+              kind TEXT NOT NULL,
+              target TEXT NOT NULL,
+              old_value TEXT,
+              new_value TEXT,
+              undoes INTEGER,
+              undone_by INTEGER
+            );
+            CREATE INDEX edits_target ON edits(target, id);
+            DROP TRIGGER call_segments_search_insert;
+            DROP TRIGGER call_segments_search_update;
+            DROP TRIGGER dictations_search_insert;
+            DROP TRIGGER dictations_search_update;
+            CREATE TRIGGER call_segments_search_insert AFTER INSERT ON call_segments BEGIN
+              DELETE FROM transcript_search WHERE rowid = new.id;
+              INSERT INTO transcript_search (rowid, text, kind, ref_id)
+                VALUES (new.id, coalesce(new.corrected_text, new.text), 'call', new.call_id);
+            END;
+            CREATE TRIGGER call_segments_search_update AFTER UPDATE OF text, corrected_text ON call_segments BEGIN
+              DELETE FROM transcript_search WHERE rowid = old.id;
+              INSERT INTO transcript_search (rowid, text, kind, ref_id)
+                VALUES (new.id, coalesce(new.corrected_text, new.text), 'call', new.call_id);
+            END;
+            CREATE TRIGGER dictations_search_insert AFTER INSERT ON dictations BEGIN
+              DELETE FROM transcript_search WHERE rowid = -new.rowid;
+              INSERT INTO transcript_search (rowid, text, kind, ref_id)
+                SELECT -new.rowid, coalesce(new.corrected_text, new.final_text), 'dictation', new.id
+                WHERE coalesce(new.corrected_text, new.final_text) <> '';
+            END;
+            CREATE TRIGGER dictations_search_update AFTER UPDATE OF final_text, corrected_text ON dictations BEGIN
+              DELETE FROM transcript_search WHERE rowid = -old.rowid;
+              INSERT INTO transcript_search (rowid, text, kind, ref_id)
+                SELECT -new.rowid, coalesce(new.corrected_text, new.final_text), 'dictation', new.id
+                WHERE coalesce(new.corrected_text, new.final_text) <> '';
+            END;
+            """),
     ]
 
     /// The names of the migrations this file has had.
@@ -532,27 +579,44 @@ public final class CallStore: @unchecked Sendable {
              speakers: row.string(12).map { $0.split(separator: "\u{1F}", omittingEmptySubsequences: false).map(String.init) })
     }
 
-    private static let dictationColumns = """
+    static let dictationColumns = """
         id, created_at, audio_path, duration, mode, whisper_model, raw_text, final_text, cleanup_model,
-        cleanup_system, record_ms, load_ms, transcribe_ms, cleanup_ms, paste_ms, error, origin, retry_ms
+        cleanup_system, record_ms, load_ms, transcribe_ms, cleanup_ms, paste_ms, error, origin, retry_ms,
+        corrected_text
         """
 
-    private static func readDictation(_ row: SQLiteRow) -> Dictation {
-        Dictation(id: row.text(0), createdAt: row.date(1), audioPath: row.text(2), duration: row.double(3),
-                  mode: Dictation.Mode(rawValue: row.text(4)) ?? .plain, whisperModel: row.text(5),
-                  rawText: row.text(6), finalText: row.text(7), cleanupModel: row.string(8),
-                  cleanupSystem: row.string(9),
-                  timings: Dictation.Timings(record: row.optionalInt(10), load: row.optionalInt(11),
-                                             transcribe: row.optionalInt(12), cleanup: row.optionalInt(13),
-                                             paste: row.optionalInt(14), retry: row.optionalInt(17)),
-                  segments: [], error: row.string(15), origin: row.string(16).flatMap(Dictation.Origin.init))
+    /// A corrected dictation reads as its correction, with the text it had kept beside it.
+    static func readDictation(_ row: SQLiteRow) -> Dictation {
+        let corrected = row.string(18)
+        return Dictation(id: row.text(0), createdAt: row.date(1), audioPath: row.text(2), duration: row.double(3),
+                         mode: Dictation.Mode(rawValue: row.text(4)) ?? .plain, whisperModel: row.text(5),
+                         rawText: row.text(6), finalText: corrected ?? row.text(7), cleanupModel: row.string(8),
+                         cleanupSystem: row.string(9),
+                         timings: Dictation.Timings(record: row.optionalInt(10), load: row.optionalInt(11),
+                                                    transcribe: row.optionalInt(12), cleanup: row.optionalInt(13),
+                                                    paste: row.optionalInt(14), retry: row.optionalInt(17)),
+                         segments: [], error: row.string(15), origin: row.string(16).flatMap(Dictation.Origin.init),
+                         originalText: corrected == nil ? nil : row.text(7))
+    }
+
+    static let segmentColumns = """
+        id, call_id, channel, start_ms, end_ms, coalesce(corrected_text, text), avg_logprob, no_speech_prob,
+        compression_ratio, created_at, CASE WHEN corrected_text IS NULL THEN NULL ELSE text END
+        """
+
+    static func readSegment(_ row: SQLiteRow) -> CallSegment {
+        CallSegment(id: row.int64(0), callID: row.text(1), channel: CallSegment.Channel(rawValue: row.text(2)) ?? .mix,
+                    startMs: row.int(3), endMs: row.int(4), text: row.text(5), avgLogprob: row.optionalDouble(6),
+                    noSpeechProb: row.optionalDouble(7), compressionRatio: row.optionalDouble(8),
+                    createdAt: row.date(9), originalText: row.string(10))
     }
 
     private func hits(_ match: String, _ limit: Int) throws -> [SearchHit] {
         try db.query("""
             SELECT transcript_search.kind, transcript_search.ref_id,
                    snippet(transcript_search, 0, '[', ']', '…', 24),
-                   cs.id, cs.channel, cs.start_ms, c.started_at, c.title, d.created_at
+                   cs.id, cs.channel, cs.start_ms, c.started_at, c.title, d.created_at,
+                   coalesce(cs.corrected_text, d.corrected_text) IS NOT NULL
             FROM transcript_search
             LEFT JOIN call_segments cs ON transcript_search.kind = 'call' AND cs.id = transcript_search.rowid
             LEFT JOIN calls c ON c.id = cs.call_id
@@ -565,15 +629,15 @@ public final class CallStore: @unchecked Sendable {
                              at: isCall ? row.date(6) : row.date(8), title: isCall ? row.string(7) : nil,
                              channel: isCall ? row.string(4).flatMap(CallSegment.Channel.init) : nil,
                              segmentID: isCall ? row.int64(3) : nil, startMs: isCall ? row.int(5) : nil,
-                             snippet: row.text(2))
+                             snippet: row.text(2), corrected: row.int(9) != 0 ? true : nil)
         }
     }
 
-    private func exists(_ callID: String) throws -> Bool {
+    func exists(_ callID: String) throws -> Bool {
         try !db.query("SELECT 1 FROM calls WHERE id = ?", [callID], { _ in 1 }).isEmpty
     }
 
-    private func require(_ callID: String) throws -> Call {
+    func require(_ callID: String) throws -> Call {
         guard let call = try call(callID) else { throw VoiceError.store("No call \(callID).") }
         return call
     }

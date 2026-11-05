@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         model.agents.recording = calls
+        model.agents.keyTerms = PreferencesKeyTerms(preferences: model.preferences)
         model.calls = calls
         model.launch()
         calls.launch(model: model)

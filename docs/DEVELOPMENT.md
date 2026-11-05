@@ -59,4 +59,4 @@ scp HOST:work/voice/site/appcast.xml site/ && scp HOST:work/voice/Casks/voice.rb
 git commit -m "Voice $v appcast and cask" site/appcast.xml Casks/voice.rb && git push
 ```
 
-The website is `site/`, published to GitHub Pages by `.github/workflows/pages.yml` when it changes on main. The feed is served from there, at `https://spashii.github.io/voice/appcast.xml`.
+The website is `site/`, published to GitHub Pages by `.github/workflows/pages.yml` when it changes on main. The feed is served from there, at `https://spashii.github.io/voice/appcast.xml`. The app reads it through `https://apps.idea2prod.in/voice/appcast.xml`, which passes it through unchanged and counts the checks, and the cask downloads through `https://apps.idea2prod.in/voice/download/VERSION`, which redirects to the release's image.

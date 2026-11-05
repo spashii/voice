@@ -32,7 +32,7 @@ A Mac with Apple silicon and macOS 15 or later. Optional:
 
 ## Install
 
-1. Download `Voice-VERSION.dmg` from [Releases](../../releases), open it, and drag Voice to Applications. Or install it with Homebrew:
+1. Download [`Voice-VERSION.dmg`](https://apps.idea2prod.in/voice/download), open it, and drag Voice to Applications. Or install it with Homebrew:
 
    ```sh
    brew tap spashii/voice https://github.com/spashii/voice
@@ -94,7 +94,7 @@ To reach it from your other devices, put it on your tailnet with Tailscale Serve
 
 ## Privacy
 
-Voice works entirely on your Mac. It has no analytics and no accounts. It goes online only to download the speech models, once, from Hugging Face, and to check for updates (with [Sparkle](https://sparkle-project.org), sending nothing about you or your Mac). Whisper runs on the GPU, and the fix step talks to Ollama on `127.0.0.1`.
+Voice works entirely on your Mac. It has no analytics and no accounts. It goes online only to download the speech models, once, from Hugging Face, and to check for updates with [Sparkle](https://sparkle-project.org). Update checks and downloads go through apps.idea2prod.in, which counts them by app, version and country and never stores your IP address. Whisper runs on the GPU, and the fix step talks to Ollama on `127.0.0.1`.
 
 The MCP server listens on `127.0.0.1` only and answers nothing without the token. It reaches other devices only if you put it on your tailnet with Tailscale Serve, and then only inside your tailnet. A switch in Settings turns it off.
 

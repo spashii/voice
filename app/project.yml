@@ -46,7 +46,8 @@ targets:
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: Free software under the MIT License.
         NSMicrophoneUsageDescription: Voice records your microphone while you dictate.
-        SUFeedURL: https://spashii.github.io/voice/appcast.xml
+        # Passes the appcast on GitHub Pages through unchanged, and counts update checks.
+        SUFeedURL: https://apps.idea2prod.in/voice/appcast.xml
         # Updates must be signed with the matching private key, kept with the Developer ID.
         SUPublicEDKey: YLvPSGEaYiPsXphy/q9LCDGs2s0qp8hM2LVBIWbl78c=
     entitlements:

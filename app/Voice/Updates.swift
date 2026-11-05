@@ -2,15 +2,17 @@ import Foundation
 import Observation
 import Sparkle
 
-/// Updates come through Sparkle: it reads the appcast on Voice's website, checks each update
-/// against the signing key in Info.plist, and asks before installing. On the second launch it
-/// asks whether to check automatically. Apart from the speech model downloads, nothing else
-/// in Voice goes online.
+/// Updates come through Sparkle: it reads the appcast through apps.idea2prod.in, which passes
+/// the one on Voice's website through and counts the checks, checks each update against the
+/// signing key in Info.plist, and asks before installing. On the second launch it asks
+/// whether to check automatically. Apart from the speech model downloads, nothing else in
+/// Voice goes online.
 @MainActor
 @Observable
 final class Updates {
-    @ObservationIgnored private let controller = SPUStandardUpdaterController(
-        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    /// Sparkle holds its delegate weakly, so this keeps it alive.
+    @ObservationIgnored private let delegate: UpdaterDelegate
+    @ObservationIgnored private let controller: SPUStandardUpdaterController
     @ObservationIgnored private var observations: [NSKeyValueObservation] = []
 
     /// False while a check is already under way.
@@ -20,6 +22,10 @@ final class Updates {
     }
 
     init() {
+        let delegate = UpdaterDelegate()
+        self.delegate = delegate
+        controller = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: delegate,
+                                                  userDriverDelegate: nil)
         automatic = controller.updater.automaticallyChecksForUpdates
         canCheck = controller.updater.canCheckForUpdates
         // Sparkle changes both on the main thread.
@@ -41,5 +47,14 @@ final class Updates {
 
     func check() {
         controller.checkForUpdates(nil)
+    }
+}
+
+/// Marks update checks from the owner's own Macs (the OwnerMac default), so the counts at
+/// apps.idea2prod.in can leave them out. Sparkle adds the pair to the appcast's query; every
+/// other Mac sends no parameters, and the system profile stays off.
+final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
+    func feedParameters(for updater: SPUUpdater, sendingSystemProfile sendingProfile: Bool) -> [[String: String]] {
+        UserDefaults.standard.bool(forKey: "OwnerMac") ? [["key": "self", "value": "1"]] : []
     }
 }

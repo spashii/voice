@@ -1,17 +1,12 @@
 # Voice over MCP
 
-Agents read dictations and call transcripts, live calls included, through an MCP server: Claude Code, Codex or any MCP client on this Mac, and, if you choose, on your other devices over Tailscale.
+Agents read dictations and call transcripts, live calls included, through an MCP server at `http://127.0.0.1:7766/mcp`: Claude Code, Codex or any MCP client on this Mac.
 
-| From | Address |
-| --- | --- |
-| This Mac | `http://127.0.0.1:7766/mcp` |
-| Your tailnet, once you set up Tailscale Serve | `https://<your Mac's tailnet name>:8443/mcp` |
-
-Every request carries `Authorization: Bearer <token>`, from this Mac too; without it the answer is 401.
+Every request carries `Authorization: Bearer <token>`; without it the answer is 401.
 
 ## Who serves it
 
-Voice hosts the server while it runs, unless Settings, General, "Agents can read transcripts" is off. That row shows both addresses and copies the token. When Voice isn't running nothing answers, and the tailnet address returns 502.
+Voice hosts the server while it runs, unless Settings, General, "Agents can read transcripts" is off. That row shows the address and copies the token. When Voice isn't running nothing answers.
 
 `voice-cli mcp` serves the same thing without the app, against the same database:
 
@@ -32,21 +27,7 @@ claude mcp add --transport http --scope user voice http://127.0.0.1:7766/mcp \
   --header "Authorization: Bearer $(cat ~/Library/Application\ Support/Voice/mcp-token)"
 ```
 
-From another device, use the tailnet address instead, and keep the token in that device's own secret store rather than in a shell history.
-
-## The tailnet (optional)
-
-Nothing leaves the Mac unless you do this. Tailscale Serve can forward HTTPS on port 8443 to the server, inside your tailnet only (Serve, not Funnel, so nothing is public). Run these on the Mac:
-
-```sh
-TS=/Applications/Tailscale.app/Contents/MacOS/Tailscale
-$TS serve --bg --https=8443 http://127.0.0.1:7766    # on; persists across restarts
-$TS serve status                                      # what is served
-$TS serve --https=8443 off                            # off
-$TS status --json | jq -r .Self.DNSName               # your Mac's tailnet name
-```
-
-Serve terminates TLS and connects from 127.0.0.1, so the token is what keeps other tailnet devices out. Voice's Settings show the tailnet address once Serve forwards to it.
+The server listens on this Mac only. To reach it from another device, put a reverse proxy of your own in front of port 7766; the token is then what keeps everyone else out.
 
 ## Tools
 

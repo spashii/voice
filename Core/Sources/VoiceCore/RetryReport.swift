@@ -124,7 +124,8 @@ public enum RetryReport {
                                          retried: rate(scores.reduce(0) { $0 + $1.flaggedFinalErrors }, flaggedWords),
                                          words: flaggedWords)
         let latency = pasteMs.map(Double.init)
-        summary.pasteLatencyMs = Summary.Percentiles(p50: percentile(latency, 0.5), p90: percentile(latency, 0.9),
+        summary.pasteLatencyMs = Summary.Percentiles(p50: percentile(latency, 0.5).map { round($0, 0) },
+                                                     p90: percentile(latency, 0.9).map { round($0, 0) },
                                                      n: latency.count)
         let seconds = records.filter(\.retried).map(\.seconds)
         summary.retrySeconds = Summary.Percentiles(p50: percentile(seconds, 0.5).map { round($0, 3) },

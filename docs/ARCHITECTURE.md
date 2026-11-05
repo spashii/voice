@@ -28,7 +28,7 @@ Audio in:
 
 Speech to text:
 
-- `Transcriber.swift`: whisper.cpp on the GPU, one decode at a time. Greedy decoding after Silero voice activity detection, with the key terms and the text before as the prompt. Per segment it keeps the mean log probability, no-speech probability, compression ratio, seconds of speech and words per second. Segment retries exist and are off.
+- `Transcriber.swift`: whisper.cpp on the GPU, one decode at a time. Greedy decoding after Silero voice activity detection, with the key terms and the text before as the prompt. Per segment it keeps the mean log probability, no-speech probability, compression ratio, seconds of speech and words per second. In the app, segments with a mean log probability under -0.6 are decoded again with beam 5 and the segment before as the prompt, worst first, within half the first decode's time, and the surer text is kept. Every segment keeps a record of what the retry did.
 - `Models.swift`: the two Whisper models (large v3 turbo and large v3), the voice activity model, where each downloads from, Whisper's language list and the models Ollama has.
 - `Live.swift`: `Chunker` cuts a stream of samples at pauses, and `LiveTranscription` decodes the chunks in order on one worker.
 
@@ -38,6 +38,7 @@ Dictation:
 - `Cleanup.swift`: the fix step's settings and its request to Ollama.
 - `Recovery.swift`: finds WAVs the history doesn't know and repairs their headers.
 - `Store.swift`: dictations and their segments, in SQLite.
+- `RetryReference.swift`, `RetryReport.swift`: the references decoded while the Mac is idle (large v3 when downloaded, beam 5) and `voice-cli retry-report`, which scores the retries against them and prints aggregates only.
 - `OpenSuperWhisperImport.swift`: copies OpenSuperWhisper's history in as dictations with origin `imported`, as a test set.
 
 Calls:
@@ -98,7 +99,7 @@ Quitting during a call closes the WAV without waiting for the transcript and lea
 
 ## Storage
 
-- `voice.sqlite` holds everything: `dictations` and `segments` (Store), `calls`, `call_segments`, `call_tags` and the `transcript_search` index (CallStore), and `voice_migrations`.
+- `voice.sqlite` holds everything: `dictations` and `segments` (Store), `calls`, `call_segments`, `call_tags` and the `transcript_search` index (CallStore), `segment_retries` and `retry_references`, and `voice_migrations`. Store runs the migrations too, so a process that opens only Store finds the schema current.
 - Every store opens its own connection to the file: the app's history, the call recorder's, the MCP server's and voice-cli's. The journal is WAL, a writer waits up to 5 seconds for another, and a transaction that reads before it writes begins immediate, so another process can't overtake it between the two.
 - CallStore opens Store first, so the dictation tables exist before the search index's triggers attach to them. Each migration is applied once and recorded by name. A shipped one never changes; a schema change is a new entry at the end.
 - `transcript_search` is FTS5 (Porter stemming, no diacritics) over call segments and each dictation's final text, kept current by triggers. A search needs every word, and falls back to any word when nothing has them all.
@@ -127,7 +128,8 @@ Quitting during a call closes the WAV without waiting for the transcript and lea
 
 **One whisper decode at a time.** A whisper.cpp context can't run two, and a second model on the GPU is more than a 16 GB Mac has.
 
-- `Transcriber` runs every decode on one serial queue (`voice.whisper`). Live dictation chunks, a whole-file decode, recovery, a call's chunks and a rebuild all go through it, so they queue behind each other. Dictating during a call waits behind the call's pieces.
+- Every `Transcriber` runs its decodes on one serial queue they share (`voice.whisper`). Live dictation chunks and their retries, a whole-file decode, recovery, a call's chunks, a rebuild and the idle references all go through it, so they queue behind each other. Dictating during a call waits behind the call's pieces.
+- The reference pass runs only with nothing recording, ten minutes without input, mains power, no memory pressure and no Ollama model loaded. A recording, or any input, stops its decode within a decoding step, and its model unloads when it stops.
 - The app has one pipeline, and so one transcriber, per Whisper model. While a call uses Whisper, `currentPipeline` keeps handing out the same one, and `chooseWhisperModel` refuses a switch.
 - Recovery at launch starts a file only while the app is idle.
 
@@ -179,6 +181,6 @@ Smaller rules:
 
 ## Tests
 
-`cd Core && swift test` covers the store and its index, the cursor and the wait, the MCP server and its limits, call source choice, call detection, channel handling, rebuild, AAC conversion, the chunkers, recovery, input loss and write errors, the fix step and the pipeline, and the OpenSuperWhisper import. Ollama is stubbed with a `URLProtocol`. The tests that need Whisper run only when `VOICE_TEST_WHISPER_MODEL` points at a model.
+`cd Core && swift test` covers the store and its index, segment retries and their records, the references and the retry report, the cursor and the wait, the MCP server and its limits, call source choice, call detection, channel handling, rebuild, AAC conversion, the chunkers, recovery, input loss and write errors, the fix step and the pipeline, and the OpenSuperWhisper import. Ollama is stubbed with a `URLProtocol`. The tests that need Whisper run only when `VOICE_TEST_WHISPER_MODEL` points at a model.
 
 `voice-cli` is the manual side. `call --file` plays a stereo WAV as a live call, `fake-call` writes a call that gains a segment every 2 seconds, and `watch-calls --raw` prints call detection and every process using audio. `live` compares the live chunks with a whole-file decode.

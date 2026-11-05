@@ -26,7 +26,8 @@ import whisper
 //
 // Whisper options for batch: --whisper-terms (the key terms open whisper's prompt),
 // --entry-terms (a manifest entry's own terms instead), --no-fallback (temperature
-// fallback off), --retry [--retry-budget X] (segment retries), --uids FILE (only these).
+// fallback off), --retry [--retry-budget X] [--retry-below LOGPROB] (segment retries),
+// --uids FILE (only these).
 //
 // batch and cleanup-batch skip what OUT already holds, so an interrupted run picks up.
 //
@@ -117,6 +118,7 @@ let entryTerms = flag("--entry-terms")
 if flag("--no-fallback") { whisper.temperatureIncrement = 0 }
 if flag("--retry") { whisper.retry.enabled = true }
 if let budget = option("--retry-budget").flatMap(Double.init) { whisper.retry.budget = budget }
+if let below = option("--retry-below").flatMap(Double.init) { whisper.retry.logprobBelow = below }
 if whisperTerms { whisper.keyTerms = cleanup.keyTerms }
 let uidsPath = option("--uids")
 /// Stop after this many new items, so a caller can pause between chunks.

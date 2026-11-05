@@ -130,8 +130,9 @@ public final class WhisperTokenizer: PromptTokenizer, @unchecked Sendable {
     private let modelURL: URL?
     private var vocabulary: Data?
 
-    /// The first speech model on disk: every model Voice offers has the same text tokens.
-    public init(modelURL: URL? = WhisperModel.allCases.first(where: \.isDownloaded)?.file) {
+    /// With no model given, the first speech model on disk, looked for at each count until one
+    /// is there: every model Voice offers has the same text tokens.
+    public init(modelURL: URL? = nil) {
         self.modelURL = modelURL
     }
 
@@ -151,7 +152,9 @@ public final class WhisperTokenizer: PromptTokenizer, @unchecked Sendable {
     private func withContext<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
         lock.lock()
         defer { lock.unlock() }
-        if vocabulary == nil { vocabulary = try Self.header(modelURL) }
+        if vocabulary == nil {
+            vocabulary = try Self.header(modelURL ?? WhisperModel.allCases.first(where: \.isDownloaded)?.file)
+        }
         var params = whisper_context_default_params()
         params.use_gpu = false
         params.flash_attn = false
@@ -160,7 +163,7 @@ public final class WhisperTokenizer: PromptTokenizer, @unchecked Sendable {
             whisper_init_from_buffer_with_params_no_state(UnsafeMutableRawPointer(mutating: bytes.baseAddress),
                                                           bytes.count, params)
         }) else {
-            throw VoiceError.whisper("Whisper couldn't read the vocabulary in \(modelURL?.lastPathComponent ?? "the model").")
+            throw VoiceError.whisper("Whisper couldn't read the speech model's vocabulary.")
         }
         defer { whisper_free(context) }
         return try body(context)

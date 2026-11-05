@@ -62,7 +62,7 @@ Agents:
 - `Calls.swift` (`CallsModel`): detection to prompt, the call shortcut, the source, record and stop, rebuild and compress at launch, and the warning when a call app reads the mix. Also the prompt panel and the menu and Settings parts.
 - `AgentAccess.swift`: runs the MCP server while the app runs, with the Settings switch, the addresses and the token.
 - `Updates.swift`: Sparkle, the Check for Updates button and the automatic switch.
-- `Indicator.swift`, `Paster.swift`, `Preferences.swift`, `SettingsView.swift`, `Setup.swift`, `Downloads.swift`: the pills (a dictation's, and a call's while it records), the paste, UserDefaults, Settings, the first-run window and the model downloads.
+- `Indicator.swift`, `CallPill.swift`, `Paster.swift`, `Preferences.swift`, `SettingsView.swift`, `RetryStatsView.swift`, `Setup.swift`, `Downloads.swift`: the pills (a dictation's, and a call's while it records, with the call's newest three lines from `LiveCallLines`, fed by the same wait as `wait_for_transcript` and emptied after 20 quiet seconds), the paste, UserDefaults, Settings and the retry numbers in it, the first-run window and the model downloads.
 
 ## A dictation
 

@@ -11,8 +11,8 @@ final class Indicator {
     private let model: AppModel
     private var panel: NSPanel?
     /// Room for the dictation pill at its largest, with the live text, and the call pill
-    /// under it; the panel is clear around them.
-    private static let size = NSSize(width: 440, height: 116)
+    /// under it with its lines; the panel is clear around them.
+    private static let size = NSSize(width: 440, height: 190)
 
     init(model: AppModel) {
         self.model = model
@@ -65,7 +65,10 @@ struct IndicatorView: View {
                     .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             if let call = model.calls?.recording {
-                CallPill(call: call)
+                CallPill(startedAt: call.startedAt,
+                         stopHint: KeyboardShortcuts.getShortcut(for: .recordCall).map { "\($0.description) stops" }
+                             ?? "Stop it from the menu",
+                         lines: model.calls?.live.lines ?? [])
             }
         }
         .font(.system(size: 12, weight: .medium))
@@ -127,24 +130,5 @@ private struct LevelBar: View {
             .overlay(alignment: .leading) {
                 Capsule().fill(.green).frame(width: 48 * CGFloat(level), height: 4)
             }
-    }
-}
-
-/// Shown for the whole of a call recording, so it is never left running unnoticed: the
-/// clock, and the key that stops it.
-private struct CallPill: View {
-    let call: Call
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Circle().fill(.red).frame(width: 8, height: 8)
-            Text("Recording call")
-            Text(call.startedAt, style: .timer).monospacedDigit().foregroundStyle(.secondary).fixedSize()
-            Text(KeyboardShortcuts.getShortcut(for: .recordCall).map { "\($0.description) stops" } ?? "Stop it from the menu")
-                .foregroundStyle(.secondary)
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 28)
-        .background(.regularMaterial, in: Capsule())
     }
 }

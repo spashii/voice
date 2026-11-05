@@ -38,6 +38,9 @@ final class CallsModel {
             if (oldValue == nil) != (recording == nil) { model?.refreshIndicator() }
         }
     }
+    /// The recording's newest lines for its pill, as they are transcribed. Emptied after
+    /// `quiet` with nothing new, which shrinks the pill back until the next line.
+    private(set) var live = LiveCallLines()
     /// Between the shortcut and the recorder starting, so a second press doesn't start a
     /// second call.
     private(set) var starting = false
@@ -58,6 +61,9 @@ final class CallsModel {
     /// The app a recording was started for: when its call ends, the recording does too.
     @ObservationIgnored private var recordingFor: String?
     @ObservationIgnored private lazy var prompt = CallPrompt(calls: self)
+    @ObservationIgnored private var following: Task<Void, Never>?
+    @ObservationIgnored private var quieting: Task<Void, Never>?
+    private static let quiet: Duration = .seconds(20)
 
     init() {
         askToRecord = UserDefaults.standard.object(forKey: "askToRecordCalls") as? Bool ?? true
@@ -167,6 +173,7 @@ final class CallsModel {
         recording = call
         recordingFor = app?.bundleID
         error = nil
+        follow(call)
         updatePrompt()
         if let chosenSource, chosenSource != source.id {
             model.notice("The input chosen for calls isn't connected, so \(source.name) is recording.")
@@ -190,6 +197,7 @@ final class CallsModel {
         // The menu stops showing the call at once; the tail is transcribed after.
         recording = nil
         recordingFor = nil
+        unfollow()
         transcribing = true
         let call = await recorder.stop()
         transcribing = false
@@ -203,11 +211,50 @@ final class CallsModel {
         guard recording != nil else { return }
         recording = nil
         recordingFor = nil
+        unfollow()
         let text = "The input went away, so the call stopped recording. What was recorded is kept."
         error = text
         model?.notice(text)
         refreshRecent()
         updatePrompt()
+    }
+
+    /// Reads the call's segments as they are written, from the store's wait, the one
+    /// wait_for_transcript uses. The wait looks at the file twice a second, off the main
+    /// thread; only new lines come back to it.
+    private func follow(_ call: Call) {
+        unfollow()
+        live = LiveCallLines(speakers: call.speakers)
+        guard let store else { return }
+        following = Task.detached(priority: .utility) { [weak self] in
+            var cursor: Int64 = 0
+            while !Task.isCancelled {
+                guard let batch = try? await store.waitForSegments(call.id, after: cursor, timeout: .seconds(60))
+                else { return }
+                cursor = batch.cursor
+                if !batch.segments.isEmpty { await self?.show(batch.segments) }
+                if batch.call?.status.isLive != true { return }
+            }
+        }
+    }
+
+    private func show(_ segments: [CallSegment]) {
+        guard recording != nil else { return }
+        live.add(segments)
+        quieting?.cancel()
+        quieting = Task { [weak self] in
+            try? await Task.sleep(for: Self.quiet)
+            guard !Task.isCancelled else { return }
+            self?.live.clear()
+        }
+    }
+
+    private func unfollow() {
+        following?.cancel()
+        following = nil
+        quieting?.cancel()
+        quieting = nil
+        live.clear()
     }
 
     func notNow(_ app: DetectedCall) {

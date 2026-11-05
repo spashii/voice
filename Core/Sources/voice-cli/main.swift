@@ -18,11 +18,9 @@ import whisper
 //   voice-cli call ..., voice-cli watch-calls            call recording; see Calls.swift
 //   voice-cli import-osw [PATH]                          OpenSuperWhisper's history into Voice's;
 //       see ImportOSW.swift
-//   voice-cli retry-report [--json]                      scores the app's segment retries against
-//       the references the app decodes while the Mac is idle; prints aggregates only, no text.
-//       Needs uv, which runs the scorer with jiwer and OpenAI's English normalizer
-//   voice-cli references [--max N]                       decodes references now, as the app does
-//       when idle, with --model (large v3 when it is downloaded, turbo otherwise)
+//   voice-cli retry-report [--json]                      the app's segment retries over the last
+//       7 days and all time, as Settings shows them: unsure, retried, changed, the words the
+//       retries changed, the confidence change and the paste time added. Numbers only, no text
 //
 // Whisper options for batch: --whisper-terms (the key terms open whisper's prompt),
 // --entry-terms (a manifest entry's own terms instead), --no-fallback (temperature
@@ -67,38 +65,22 @@ if let command = args.first, ["mcp", "fake-call"].contains(command) {
 }
 if args.first == "import-osw" { importOpenSuperWhisper(Array(args.dropFirst()), dbPath: dbPath) }
 if args.first == "retry-report" {
-    // Reads the file and prints numbers; it needs no model and never writes a transcript.
+    // Reads the file and prints numbers; it needs no model and never prints a transcript.
     let url = dbPath.map { URL(fileURLWithPath: $0) } ?? Paths.database
     do {
-        let data = try RetryReport.load(url)
-        let summary = RetryReport.summarize(records: data.records, dictations: data.dictations,
-                                            callSegments: data.callSegments, pasteMs: data.pasteMs,
-                                            scores: try RetryReport.score(data.units), recordings: data.recordings,
-                                            models: data.models)
-        let out = JSONEncoder()
-        out.outputFormatting = [.prettyPrinted, .sortedKeys]
-        print(String(decoding: try out.encode(summary), as: UTF8.self))
+        // Store brings an older file's schema up to date first.
+        _ = try Store(url: url)
+        let summary = try RetryStats.load(url)
+        if flag("--json") {
+            let out = JSONEncoder()
+            out.outputFormatting = [.prettyPrinted, .sortedKeys]
+            print(String(decoding: try out.encode(summary), as: UTF8.self))
+        } else {
+            printRetryStats(summary)
+        }
     } catch {
         fail("\(error)")
     }
-    exit(0)
-}
-if args.first == "references" {
-    let url = dbPath.map { URL(fileURLWithPath: $0) } ?? Paths.database
-    // --model was read above, into model.
-    let chosen = CommandLine.arguments.contains("--model") ? model
-        : (WhisperModel.largeV3.isDownloaded ? WhisperModel.largeV3.file : WhisperModel.largeV3Turbo.file)
-    let limit = option("--max").flatMap(Int.init) ?? Int.max
-    let terms = option("--terms").map { $0.split(separator: ",").map(String.init) } ?? []
-    let references = try RetryReferences(url: url)
-    let transcriber = Transcriber(modelURL: chosen, vadModelURL: Paths.vadModel)
-    let options = RetryReferences.options(language: option("--language") ?? "en", keyTerms: terms)
-    var done = 0
-    while done < limit, try await references.runNext(transcriber: transcriber, options: options, stop: DecodeStop()) {
-        done += 1
-    }
-    await transcriber.unload()
-    print(done)
     exit(0)
 }
 if args.first == "watch-calls" { await watchCalls(raw: flag("--raw")) }

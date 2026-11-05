@@ -149,7 +149,6 @@ final class CallsModel {
         guard !starting else { throw VoiceError.store("A call recording is already starting.") }
         starting = true
         defer { starting = false }
-        model.referencePass.yield()
         await refreshSources()
         let source = source
         let call: Call

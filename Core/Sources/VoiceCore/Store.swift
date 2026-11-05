@@ -134,11 +134,11 @@ public final class Store: @unchecked Sendable {
                         try run("""
                             INSERT INTO segment_retries (source, dictation_id, segment_idx, t0, t1, first_text,
                               retried_text, logprob_before, logprob_after, flagged, kept, retry_seconds, changed,
-                              created_at)
-                            VALUES ('dictation',?,?,?,?,?,?,?,?,?,?,?,?,?)
+                              skipped, created_at)
+                            VALUES ('dictation',?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                             """, [d.id, i, s.t0, s.t1, r.firstText, r.retriedText, r.firstLogprob, r.retriedLogprob,
                                   r.flagged ? 1 : 0, r.kept ? 1 : 0, r.seconds, r.changed ? 1 : 0,
-                                  d.createdAt.timeIntervalSince1970])
+                                  r.skipped?.rawValue, d.createdAt.timeIntervalSince1970])
                     }
                 }
                 try exec("COMMIT")
@@ -180,7 +180,6 @@ public final class Store: @unchecked Sendable {
         queue.sync {
             _ = try? run("DELETE FROM segments WHERE dictation_id = ?", [id])
             _ = try? run("DELETE FROM segment_retries WHERE dictation_id = ?", [id])
-            _ = try? run("DELETE FROM retry_references WHERE dictation_id = ?", [id])
             _ = try? run("DELETE FROM dictations WHERE id = ?", [id])
         }
     }
@@ -222,7 +221,7 @@ public final class Store: @unchecked Sendable {
             // Foreign keys are off in SQLite by default, so the segments go explicitly.
             do {
                 try exec("BEGIN")
-                for child in ["segments", "segment_retries", "retry_references"] {
+                for child in ["segments", "segment_retries"] {
                     try run("""
                         DELETE FROM \(child) WHERE dictation_id IN
                           (SELECT id FROM dictations WHERE created_at < ? AND \(Self.notImported))

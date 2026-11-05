@@ -58,9 +58,6 @@ final class AppModel {
     @ObservationIgnored private var fellBackToDefault = false
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var tickTask: Task<Void, Never>?
-    /// The idle references the retry report scores against, in the history's file.
-    @ObservationIgnored private(set) var references: RetryReferences?
-    @ObservationIgnored lazy var referencePass = ReferencePass(model: self)
     @ObservationIgnored private lazy var indicator = Indicator(model: self)
     @ObservationIgnored private lazy var setupWindow = SetupWindow(model: self)
 
@@ -123,8 +120,6 @@ final class AppModel {
         } catch {
             show("Can't open the history: \(error)")
         }
-        references = try? RetryReferences(url: Paths.database)
-        referencePass.launch()
         setDefaultLoginItem()
         refreshDevices()
         agents.launch()
@@ -158,8 +153,6 @@ final class AppModel {
         live?.cancel()
         live = nil
         _ = await recorder.stop()
-        // First, so a reference model is unloaded too: ggml asserts at exit while one holds Metal.
-        await referencePass.shutDown()
         await pipeline?.transcriber.unload()
     }
 
@@ -270,7 +263,6 @@ final class AppModel {
     }
 
     private func start(_ mode: Dictation.Mode) {
-        referencePass.yield()
         noticeTask?.cancel()
         let url = Paths.recordings.appending(path: "\(Int(Date().timeIntervalSince1970 * 1000)).wav")
         let began = Date()

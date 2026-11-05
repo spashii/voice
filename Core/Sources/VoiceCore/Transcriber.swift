@@ -1,6 +1,5 @@
 import Compression
 import Foundation
-import os
 import whisper
 
 /// One stretch of text from whisper, with the signals the smart-retries checker will judge
@@ -48,14 +47,6 @@ public struct WhisperOptions: Sendable, Codable {
     public var initialPrompt = ""
     /// Drop silence before decoding, so whisper can't invent text for it.
     public var vad = true
-    /// Loosens the voice activity detector so it drops only long silences: the shortest
-    /// silence it cuts and the speech it keeps on each side, in milliseconds. Nil keeps
-    /// whisper.cpp's defaults, which trim tightly.
-    public var vadMinSilenceMs: Int?
-    public var vadPaddingMs: Int?
-    /// Whisper reads its own text from the 30 s window before as context, as OpenAI's
-    /// decoder does by default. Off for chunks, which get their context as the prompt.
-    public var conditionOnPrevious = false
     /// 0 decodes greedily, which is whisper's default and the fastest.
     public var beamSize = 0
     /// whisper.cpp's temperature fallback: a 30 s window whose text repeats itself (entropy
@@ -100,14 +91,23 @@ public struct SegmentRetry: Sendable, Codable {
 
     public init() {}
 
+    /// Why a flagged segment wasn't decoded again, stored as its raw value.
+    public enum Skip: String, Sendable, Codable, Equatable {
+        /// The "Retry unsure segments" switch was off.
+        case off
+        /// The retries before it had spent the budget.
+        case budget
+        /// Its times fell outside the audio, so there was nothing to decode.
+        case noAudio = "no-audio"
+    }
+
     /// What the retry pass did with one segment, kept per segment so retries can be measured
     /// on real use: the first text, whether it was flagged, and the second decode if it ran.
     public struct Record: Sendable, Codable, Equatable {
         public var firstText: String
         public var firstLogprob: Double
         public var flagged: Bool
-        /// The second decode's text and mean log probability; nil when it didn't run (not
-        /// flagged, retries off, or the budget spent).
+        /// The second decode's text and mean log probability; nil when it didn't run.
         public var retriedText: String?
         public var retriedLogprob: Double?
         public var seconds = 0.0
@@ -115,9 +115,12 @@ public struct SegmentRetry: Sendable, Codable {
         public var kept = false
         /// The kept text differs from the first once case and punctuation are set aside.
         public var changed = false
+        /// Set on a flagged segment the second decode never reached.
+        public var skipped: Skip?
 
         public init(firstText: String, firstLogprob: Double, flagged: Bool, retriedText: String? = nil,
-                    retriedLogprob: Double? = nil, seconds: Double = 0, kept: Bool = false, changed: Bool = false) {
+                    retriedLogprob: Double? = nil, seconds: Double = 0, kept: Bool = false, changed: Bool = false,
+                    skipped: Skip? = nil) {
             self.firstText = firstText
             self.firstLogprob = firstLogprob
             self.flagged = flagged
@@ -126,6 +129,7 @@ public struct SegmentRetry: Sendable, Codable {
             self.seconds = seconds
             self.kept = kept
             self.changed = changed
+            self.skipped = skipped
         }
     }
 
@@ -138,24 +142,32 @@ public struct SegmentRetry: Sendable, Codable {
 
     /// Records every non-empty segment and, when on, decodes the flagged ones again, worst
     /// first, while the retry time stays under the budget. A retry that starts under it runs
-    /// to the end, so the last can go over. `decode` is whisper in the app and a stand-in in
-    /// the tests.
+    /// to the end, so the last can go over. A flagged segment left alone records why, so the
+    /// share retried can be told apart from the share the budget or the switch held back.
+    /// `decode` is whisper in the app and a stand-in in the tests.
     func run(_ first: Transcript, samples: [Float], options: WhisperOptions,
              decode: ([Float], WhisperOptions) throws -> Transcript) throws -> Transcript {
         var transcript = first
         for i in transcript.segments.indices where !transcript.segments[i].text.isEmpty {
             let segment = transcript.segments[i]
+            let flagged = segment.avgLogprob < logprobBelow
             transcript.segments[i].retry = Record(firstText: segment.text, firstLogprob: segment.avgLogprob,
-                                                  flagged: segment.avgLogprob < logprobBelow)
+                                                  flagged: flagged, skipped: flagged && !enabled ? .off : nil)
         }
         guard enabled else { return transcript }
         let allowed = first.seconds * budget
         for i in candidates(first.segments) {
-            guard transcript.retrySeconds < allowed else { break }
+            guard transcript.retrySeconds < allowed else {
+                transcript.segments[i].retry?.skipped = .budget
+                continue
+            }
             let segment = transcript.segments[i]
             let from = max(0, Int((segment.t0 - padding) * Audio.sampleRate))
             let to = min(samples.count, Int((segment.t1 + padding) * Audio.sampleRate))
-            guard to > from else { continue }
+            guard to > from else {
+                transcript.segments[i].retry?.skipped = .noAudio
+                continue
+            }
             var again = options
             again.beamSize = beamSize
             again.vad = false
@@ -183,7 +195,7 @@ public struct SegmentRetry: Sendable, Codable {
                 let words = text.split(whereSeparator: \.isWhitespace).count
                 kept.wordsPerSecond = kept.speechSeconds > 0.05 ? Double(words) / kept.speechSeconds : 0
                 record.kept = true
-                record.changed = Self.normalized(text) != Self.normalized(segment.text)
+                record.changed = !WordDiff(segment.text, text).isEmpty
                 kept.retry = record
                 transcript.segments[i] = kept
             } else {
@@ -193,14 +205,6 @@ public struct SegmentRetry: Sendable, Codable {
         transcript.seconds += transcript.retrySeconds
         transcript.text = transcript.segments.map(\.text).filter { !$0.isEmpty }.joined(separator: " ")
         return transcript
-    }
-
-    /// Lowercase words without punctuation, for telling a real change from a new comma. The
-    /// report scores with OpenAI's English normalizer; this only decides "changed".
-    static func normalized(_ text: String) -> String {
-        let kept = text.lowercased().map { $0.isLetter || $0.isNumber || $0 == "'" ? $0 : " " }
-        return String(kept).split(separator: " ").map { $0.trimmingCharacters(in: CharacterSet(charactersIn: "'")) }
-            .filter { !$0.isEmpty }.joined(separator: " ")
     }
 
     /// Seconds of retrying that fell after `stop`: what retries added to the wait for a
@@ -213,23 +217,9 @@ public struct SegmentRetry: Sendable, Codable {
     }
 }
 
-/// Set from another thread to cut a decode short; whisper checks it between steps. The
-/// reference pass uses it to give whisper back the moment a recording starts.
-public final class DecodeStop: @unchecked Sendable {
-    private let lock = OSAllocatedUnfairLock(initialState: false)
-
-    public init() {}
-
-    public var requested: Bool { lock.withLock { $0 } }
-
-    public func request() { lock.withLock { $0 = true } }
-
-    public func reset() { lock.withLock { $0 = false } }
-}
-
 /// Runs whisper.cpp on the GPU. One decode at a time across every model, on one queue all
-/// transcribers share: a context can't run two, and the reference pass's model decoding
-/// beside the dictation's would contend for the same GPU.
+/// transcribers share: a context can't run two, and two models decoding at once (the old
+/// one finishing while Settings switches) would contend for the same GPU.
 public final class Transcriber: @unchecked Sendable {
     public let modelURL: URL
     public let vadModelURL: URL?
@@ -276,24 +266,9 @@ public final class Transcriber: @unchecked Sendable {
         }
     }
 
-    /// One decode with no retry pass, at utility priority, that `stop` can cut short: for
-    /// work that runs only while the Mac is idle and must give way at once.
-    public func transcribeInBackground(_ samples: [Float], options: WhisperOptions, stop: DecodeStop) async throws
-        -> Transcript {
-        try await onQueue(qos: .utility) {
-            guard !stop.requested else { throw CancellationError() }
-            _ = try self.loadOnQueue()
-            return try self.decode(samples, options, stop: stop)
-        }
-    }
-
-    private func onQueue<T: Sendable>(qos: DispatchQoS = .unspecified,
-                                      _ work: @escaping @Sendable () throws -> T) async throws -> T {
+    private func onQueue<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
         try await withCheckedThrowingContinuation { done in
-            // enforceQoS keeps a background decode at utility on the user-initiated queue.
-            queue.async(qos: qos, flags: qos == .unspecified ? [] : .enforceQoS) {
-                done.resume(with: Result { try work() })
-            }
+            queue.async { done.resume(with: Result { try work() }) }
         }
     }
 
@@ -313,7 +288,7 @@ public final class Transcriber: @unchecked Sendable {
         return (ContinuousClock.now - start).seconds
     }
 
-    private func decode(_ samples: [Float], _ options: WhisperOptions, stop: DecodeStop? = nil) throws -> Transcript {
+    private func decode(_ samples: [Float], _ options: WhisperOptions) throws -> Transcript {
         guard let context else { throw VoiceError.whisper("No model loaded.") }
         let start = ContinuousClock.now
         // Whisper needs at least a second; shorter recordings are padded with silence.
@@ -329,7 +304,7 @@ public final class Transcriber: @unchecked Sendable {
         params.print_special = false
         params.translate = false
         // Each recording stands alone, so a mistake in one can't steer the next.
-        params.no_context = !options.conditionOnPrevious
+        params.no_context = true
         params.suppress_nst = true
         params.temperature = 0
         params.temperature_inc = options.temperatureIncrement
@@ -352,22 +327,11 @@ public final class Transcriber: @unchecked Sendable {
         if let vadPath {
             params.vad = true
             params.vad_model_path = UnsafePointer(vadPath)
-            if let ms = options.vadMinSilenceMs { params.vad_params.min_silence_duration_ms = Int32(ms) }
-            if let ms = options.vadPaddingMs { params.vad_params.speech_pad_ms = Int32(ms) }
-        }
-        if let stop {
-            params.abort_callback = { data in
-                data.map { Unmanaged<DecodeStop>.fromOpaque($0).takeUnretainedValue().requested } ?? false
-            }
-            params.abort_callback_user_data = Unmanaged.passUnretained(stop).toOpaque()
         }
 
-        let status = withExtendedLifetime(stop) {
-            samples.withUnsafeBufferPointer { buffer in
-                whisper_full(context, params, buffer.baseAddress, Int32(buffer.count))
-            }
+        let status = samples.withUnsafeBufferPointer { buffer in
+            whisper_full(context, params, buffer.baseAddress, Int32(buffer.count))
         }
-        if stop?.requested == true { throw CancellationError() }
         guard status == 0 else { throw VoiceError.whisper("Whisper failed (\(status)).") }
 
         var speech: [(Double, Double)] = []

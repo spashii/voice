@@ -54,11 +54,11 @@ public final class CallStore: @unchecked Sendable {
                         try db.run("""
                             INSERT INTO segment_retries (source, call_id, call_segment_id, t0, t1, first_text,
                               retried_text, logprob_before, logprob_after, flagged, kept, retry_seconds, changed,
-                              created_at)
-                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                              skipped, created_at)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                             """, [s.channel.rawValue, callID, id, Double(s.startMs) / 1000, Double(s.endMs) / 1000,
                                   r.firstText, r.retriedText, r.firstLogprob, r.retriedLogprob, r.flagged, r.kept,
-                                  r.seconds, r.changed, now])
+                                  r.seconds, r.changed, r.skipped?.rawValue, now])
                     }
                     return CallSegment(id: id, callID: callID, channel: s.channel, startMs: s.startMs,
                                        endMs: s.endMs, text: s.text, avgLogprob: s.avgLogprob,
@@ -149,7 +149,7 @@ public final class CallStore: @unchecked Sendable {
             let rows = try db.transaction { () -> [String?] in
                 let paths = try db.query("SELECT audio_path FROM calls WHERE \(old)", [date]) { $0.string(0) }
                 // Foreign keys are off in SQLite by default, so the children go explicitly.
-                for child in ["call_segments", "call_tags", "segment_retries", "retry_references"] {
+                for child in ["call_segments", "call_tags", "segment_retries"] {
                     try db.run("DELETE FROM \(child) WHERE call_id IN (SELECT id FROM calls WHERE \(old))", [date])
                 }
                 try db.run("DELETE FROM calls WHERE \(old)", [date])
@@ -169,7 +169,7 @@ public final class CallStore: @unchecked Sendable {
         try queue.sync {
             try db.transaction {
                 // Foreign keys are off in SQLite by default, so the children go explicitly.
-                for child in ["call_segments", "call_tags", "segment_retries", "retry_references"] {
+                for child in ["call_segments", "call_tags", "segment_retries"] {
                     try db.run("DELETE FROM \(child) WHERE call_id = ?", [callID])
                 }
                 try db.run("DELETE FROM calls WHERE id = ?", [callID])
@@ -177,8 +177,7 @@ public final class CallStore: @unchecked Sendable {
         }
     }
 
-    /// Clears a call's transcript so it can be made again from the audio. Its references stay:
-    /// they were decoded from the same audio, and the new segments are matched to them by time.
+    /// Clears a call's transcript, and its retry records, so it can be made again from the audio.
     public func deleteSegments(_ callID: String) throws {
         try queue.sync {
             try db.transaction {
@@ -440,11 +439,10 @@ public final class CallStore: @unchecked Sendable {
         // The names of a split call's two sides when neither is me, left then right, joined
         // by the unit separator as tags are.
         ("speakers-1", "ALTER TABLE calls ADD COLUMN speakers TEXT;"),
-        // What the retry pass did with every dictation and call segment, and the slow
-        // decodes made while the Mac is idle to score it against. Nothing here leaves the Mac.
-        // A record points at its row: a dictation's segment by (dictation_id, segment_idx),
-        // since Store rewrites those rows, or a call segment by its id. Times are seconds on
-        // the recording's timeline, where the references are placed too.
+        // What the retry pass did with every dictation and call segment. Nothing here leaves
+        // the Mac. A record points at its row: a dictation's segment by (dictation_id,
+        // segment_idx), since Store rewrites those rows, or a call segment by its id. Times
+        // are seconds on the recording's timeline. retries-2 drops retry_references again.
         ("retries-1", """
             CREATE TABLE segment_retries (
               id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -485,6 +483,15 @@ public final class CallStore: @unchecked Sendable {
             CREATE INDEX retry_references_dictation ON retry_references(dictation_id) WHERE dictation_id IS NOT NULL;
             CREATE INDEX retry_references_call ON retry_references(call_id, t0) WHERE call_id IS NOT NULL;
             ALTER TABLE dictations ADD COLUMN retry_ms INTEGER;
+            """),
+        // Retries are measured by what they change, so the slow reference decodes go, and a
+        // flagged segment left alone keeps why (SegmentRetry.Skip). Settings reads the
+        // records by time, the retried ones most.
+        ("retries-2", """
+            DROP TABLE IF EXISTS retry_references;
+            ALTER TABLE segment_retries ADD COLUMN skipped TEXT;
+            CREATE INDEX segment_retries_created ON segment_retries(created_at);
+            CREATE INDEX segment_retries_flagged ON segment_retries(created_at) WHERE flagged = 1;
             """),
     ]
 

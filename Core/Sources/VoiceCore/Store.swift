@@ -16,6 +16,9 @@ public struct Dictation: Sendable, Codable, Identifiable {
         public var transcribe: Int?
         public var cleanup: Int?
         public var paste: Int?
+        /// The part of `transcribe` spent retrying segments after the stop: what retries
+        /// added to the wait for the paste. Retries while speaking cost nothing here.
+        public var retry: Int?
     }
 
     public var id: String
@@ -95,6 +98,10 @@ public final class Store: @unchecked Sendable {
         if !columns("dictations").contains("origin") {
             try exec("ALTER TABLE dictations ADD COLUMN origin TEXT")
         }
+        // The rest of the schema, retry records included, comes from the migrations. They run
+        // here as well as in CallStore so a process that opens only Store (the app's history,
+        // voice-cli transcribe) never writes a dictation the file has no columns for.
+        try CallStore.migrate(SQLiteConnection(url: url))
     }
 
     deinit { sqlite3_close(db) }
@@ -106,19 +113,33 @@ public final class Store: @unchecked Sendable {
                 // Foreign keys are off, so replacing the row does not cascade: a shorter re-insert
                 // would otherwise keep the old row's trailing segments.
                 try run("DELETE FROM segments WHERE dictation_id = ?", [d.id])
+                try run("DELETE FROM segment_retries WHERE dictation_id = ?", [d.id])
                 try run("""
                     INSERT OR REPLACE INTO dictations (id, created_at, audio_path, duration, mode,
                       whisper_model, raw_text, final_text, cleanup_model, cleanup_system, record_ms,
-                      load_ms, transcribe_ms, cleanup_ms, paste_ms, error, origin)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                      load_ms, transcribe_ms, cleanup_ms, paste_ms, error, origin, retry_ms)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """, [d.id, d.createdAt.timeIntervalSince1970, d.audioPath, d.duration, d.mode.rawValue,
                           d.whisperModel, d.rawText, d.finalText, d.cleanupModel, d.cleanupSystem,
                           d.timings.record, d.timings.load, d.timings.transcribe, d.timings.cleanup,
-                          d.timings.paste, d.error, d.origin?.rawValue])
+                          d.timings.paste, d.error, d.origin?.rawValue, d.timings.retry])
                 for (i, s) in d.segments.enumerated() {
-                    try run("INSERT OR REPLACE INTO segments VALUES (?,?,?,?,?,?,?,?,?,?)",
-                            [d.id, i, s.t0, s.t1, s.text, s.avgLogprob, s.noSpeechProb, s.compressionRatio,
-                             s.speechSeconds, s.wordsPerSecond])
+                    try run("""
+                        INSERT OR REPLACE INTO segments (dictation_id, idx, t0, t1, text, avg_logprob, no_speech_prob,
+                          compression_ratio, speech_seconds, words_per_second)
+                        VALUES (?,?,?,?,?,?,?,?,?,?)
+                        """, [d.id, i, s.t0, s.t1, s.text, s.avgLogprob, s.noSpeechProb, s.compressionRatio,
+                              s.speechSeconds, s.wordsPerSecond])
+                    if let r = s.retry {
+                        try run("""
+                            INSERT INTO segment_retries (source, dictation_id, segment_idx, t0, t1, first_text,
+                              retried_text, logprob_before, logprob_after, flagged, kept, retry_seconds, changed,
+                              created_at)
+                            VALUES ('dictation',?,?,?,?,?,?,?,?,?,?,?,?,?)
+                            """, [d.id, i, s.t0, s.t1, r.firstText, r.retriedText, r.firstLogprob, r.retriedLogprob,
+                                  r.flagged ? 1 : 0, r.kept ? 1 : 0, r.seconds, r.changed ? 1 : 0,
+                                  d.createdAt.timeIntervalSince1970])
+                    }
                 }
                 try exec("COMMIT")
             } catch {
@@ -158,6 +179,8 @@ public final class Store: @unchecked Sendable {
     public func delete(_ id: String) {
         queue.sync {
             _ = try? run("DELETE FROM segments WHERE dictation_id = ?", [id])
+            _ = try? run("DELETE FROM segment_retries WHERE dictation_id = ?", [id])
+            _ = try? run("DELETE FROM retry_references WHERE dictation_id = ?", [id])
             _ = try? run("DELETE FROM dictations WHERE id = ?", [id])
         }
     }
@@ -199,10 +222,12 @@ public final class Store: @unchecked Sendable {
             // Foreign keys are off in SQLite by default, so the segments go explicitly.
             do {
                 try exec("BEGIN")
-                try run("""
-                    DELETE FROM segments WHERE dictation_id IN
-                      (SELECT id FROM dictations WHERE created_at < ? AND \(Self.notImported))
-                    """, [date.timeIntervalSince1970])
+                for child in ["segments", "segment_retries", "retry_references"] {
+                    try run("""
+                        DELETE FROM \(child) WHERE dictation_id IN
+                          (SELECT id FROM dictations WHERE created_at < ? AND \(Self.notImported))
+                        """, [date.timeIntervalSince1970])
+                }
                 try run("DELETE FROM dictations WHERE created_at < ? AND \(Self.notImported)",
                         [date.timeIntervalSince1970])
                 try exec("COMMIT")

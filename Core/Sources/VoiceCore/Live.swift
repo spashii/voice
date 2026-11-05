@@ -148,6 +148,7 @@ public final class LiveTranscription: @unchecked Sendable {
                 }
                 total.retried += part.retried
                 total.retrySeconds += part.retrySeconds
+                total.retrySpans += part.retrySpans
                 parts.append((range, prompt, part))
                 onChunk(Chunk(index: index, start: offset, end: Double(range.upperBound) / Audio.sampleRate,
                               text: part.text, decodeSeconds: part.seconds,
@@ -186,8 +187,10 @@ public final class LiveTranscription: @unchecked Sendable {
     }
 
     /// Closes the open tail and waits for every chunk. Its seconds are the wait, which is
-    /// what stopping costs; throws if any chunk failed, so the caller can decode the file.
-    public func finish() async throws -> Transcript {
+    /// what stopping costs, and `retryAfterStop` is the part of it retries took, counted
+    /// from `stoppedAt`, the moment the shortcut stopped the recording. Throws if any chunk
+    /// failed, so the caller can decode the file.
+    public func finish(stoppedAt: ContinuousClock.Instant = .now) async throws -> Transcript {
         let started = ContinuousClock.now
         state.lock.withLockUnchecked {
             guard !state.finished else { return }
@@ -197,6 +200,7 @@ public final class LiveTranscription: @unchecked Sendable {
         queue.finish()
         var transcript = try await worker.value
         transcript.seconds = (ContinuousClock.now - started).seconds
+        transcript.retryAfterStop = SegmentRetry.seconds(after: stoppedAt, of: transcript.retrySpans)
         return transcript
     }
 

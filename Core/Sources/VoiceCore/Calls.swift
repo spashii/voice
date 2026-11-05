@@ -105,9 +105,11 @@ public struct NewCallSegment: Sendable {
     public var avgLogprob: Double?
     public var noSpeechProb: Double?
     public var compressionRatio: Double?
+    /// What the retry pass did with it, stored beside the segment.
+    public var retry: SegmentRetry.Record?
 
     public init(channel: CallSegment.Channel, startMs: Int, endMs: Int, text: String, avgLogprob: Double? = nil,
-                noSpeechProb: Double? = nil, compressionRatio: Double? = nil) {
+                noSpeechProb: Double? = nil, compressionRatio: Double? = nil, retry: SegmentRetry.Record? = nil) {
         self.channel = channel
         self.startMs = startMs
         self.endMs = endMs
@@ -115,6 +117,7 @@ public struct NewCallSegment: Sendable {
         self.avgLogprob = avgLogprob
         self.noSpeechProb = noSpeechProb
         self.compressionRatio = compressionRatio
+        self.retry = retry
     }
 
     /// Whisper's segment from a chunk of audio that began `offset` seconds into the call.
@@ -122,7 +125,7 @@ public struct NewCallSegment: Sendable {
         self.init(channel: channel, startMs: Int(((offset + segment.t0) * 1000).rounded()),
                   endMs: Int(((offset + segment.t1) * 1000).rounded()), text: segment.text,
                   avgLogprob: segment.avgLogprob, noSpeechProb: segment.noSpeechProb,
-                  compressionRatio: segment.compressionRatio)
+                  compressionRatio: segment.compressionRatio, retry: segment.retry)
     }
 }
 

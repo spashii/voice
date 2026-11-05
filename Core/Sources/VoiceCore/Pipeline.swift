@@ -18,8 +18,11 @@ public final class Pipeline: Sendable {
         self.store = store
     }
 
+    /// `stoppedAt` is when the recording was stopped, from which retries that delay the
+    /// paste are counted.
     public func run(_ audio: URL, recordMs: Int? = nil, whisper: WhisperOptions = WhisperOptions(),
                     cleanup: CleanupSettings? = nil, live: LiveTranscription? = nil,
+                    stoppedAt: ContinuousClock.Instant = .now,
                     onStage: @escaping @Sendable (Stage) -> Void = { _ in }) async throws -> Dictation {
         onStage(.transcribing)
         var loadSeconds = 0.0
@@ -28,13 +31,16 @@ public final class Pipeline: Sendable {
         // The chunks decoded while recording are the result: a whole-file decode on top
         // would have to wait out the prompt's model and then hold whisper's queue against
         // the next dictation. When a chunk failed, the file is decoded as before.
-        if let live, let joined = try? await live.finish() {
+        if let live, let joined = try? await live.finish(stoppedAt: stoppedAt) {
             transcript = joined
             duration = live.duration
         } else {
             let samples = try Audio.load(audio)
             loadSeconds = try await transcriber.load()
-            transcript = try await transcriber.transcribe(samples, options: whisper)
+            var whole = try await transcriber.transcribe(samples, options: whisper)
+            // Decoded after the stop, so every retry second is waited for.
+            whole.retryAfterStop = whole.retrySeconds
+            transcript = whole
             duration = Double(samples.count) / Audio.sampleRate
         }
         var dictation = Dictation(
@@ -43,7 +49,8 @@ public final class Pipeline: Sendable {
             mode: cleanup == nil ? .plain : .cleanup, whisperModel: transcriber.modelName,
             rawText: transcript.text, finalText: transcript.text,
             cleanupModel: cleanup?.model, cleanupSystem: cleanup?.system,
-            timings: .init(record: recordMs, load: Self.ms(loadSeconds), transcribe: Self.ms(transcript.seconds)),
+            timings: .init(record: recordMs, load: Self.ms(loadSeconds), transcribe: Self.ms(transcript.seconds),
+                           retry: Self.ms(transcript.retryAfterStop)),
             segments: transcript.segments)
         if let cleanup, !transcript.text.isEmpty {
             // On a 16 GB Mac, whisper's GPU memory plus a 27B model's is more than Metal

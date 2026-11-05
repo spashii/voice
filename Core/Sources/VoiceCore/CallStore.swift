@@ -16,7 +16,6 @@ public final class CallStore: @unchecked Sendable {
         // search index's triggers attach to them, even in a file no dictation has touched.
         _ = try Store(url: url)
         db = try SQLiteConnection(url: url)
-        try migrate()
     }
 
     // MARK: Writing, for the recorder
@@ -50,7 +49,18 @@ public final class CallStore: @unchecked Sendable {
                         VALUES (?,?,?,?,?,?,?,?,?)
                         """, [callID, s.channel.rawValue, s.startMs, s.endMs, s.text, s.avgLogprob, s.noSpeechProb,
                               s.compressionRatio, now])
-                    return CallSegment(id: db.lastInsertRowID, callID: callID, channel: s.channel, startMs: s.startMs,
+                    let id = db.lastInsertRowID
+                    if let r = s.retry {
+                        try db.run("""
+                            INSERT INTO segment_retries (source, call_id, call_segment_id, t0, t1, first_text,
+                              retried_text, logprob_before, logprob_after, flagged, kept, retry_seconds, changed,
+                              created_at)
+                            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                            """, [s.channel.rawValue, callID, id, Double(s.startMs) / 1000, Double(s.endMs) / 1000,
+                                  r.firstText, r.retriedText, r.firstLogprob, r.retriedLogprob, r.flagged, r.kept,
+                                  r.seconds, r.changed, now])
+                    }
+                    return CallSegment(id: id, callID: callID, channel: s.channel, startMs: s.startMs,
                                        endMs: s.endMs, text: s.text, avgLogprob: s.avgLogprob,
                                        noSpeechProb: s.noSpeechProb, compressionRatio: s.compressionRatio,
                                        createdAt: now)
@@ -139,8 +149,9 @@ public final class CallStore: @unchecked Sendable {
             let rows = try db.transaction { () -> [String?] in
                 let paths = try db.query("SELECT audio_path FROM calls WHERE \(old)", [date]) { $0.string(0) }
                 // Foreign keys are off in SQLite by default, so the children go explicitly.
-                try db.run("DELETE FROM call_segments WHERE call_id IN (SELECT id FROM calls WHERE \(old))", [date])
-                try db.run("DELETE FROM call_tags WHERE call_id IN (SELECT id FROM calls WHERE \(old))", [date])
+                for child in ["call_segments", "call_tags", "segment_retries", "retry_references"] {
+                    try db.run("DELETE FROM \(child) WHERE call_id IN (SELECT id FROM calls WHERE \(old))", [date])
+                }
                 try db.run("DELETE FROM calls WHERE \(old)", [date])
                 return paths
             }
@@ -158,16 +169,23 @@ public final class CallStore: @unchecked Sendable {
         try queue.sync {
             try db.transaction {
                 // Foreign keys are off in SQLite by default, so the children go explicitly.
-                try db.run("DELETE FROM call_segments WHERE call_id = ?", [callID])
-                try db.run("DELETE FROM call_tags WHERE call_id = ?", [callID])
+                for child in ["call_segments", "call_tags", "segment_retries", "retry_references"] {
+                    try db.run("DELETE FROM \(child) WHERE call_id = ?", [callID])
+                }
                 try db.run("DELETE FROM calls WHERE id = ?", [callID])
             }
         }
     }
 
-    /// Clears a call's transcript so it can be made again from the audio.
+    /// Clears a call's transcript so it can be made again from the audio. Its references stay:
+    /// they were decoded from the same audio, and the new segments are matched to them by time.
     public func deleteSegments(_ callID: String) throws {
-        _ = try queue.sync { try db.run("DELETE FROM call_segments WHERE call_id = ?", [callID]) }
+        try queue.sync {
+            try db.transaction {
+                try db.run("DELETE FROM call_segments WHERE call_id = ?", [callID])
+                try db.run("DELETE FROM segment_retries WHERE call_id = ?", [callID])
+            }
+        }
     }
 
     // MARK: Reading
@@ -422,6 +440,52 @@ public final class CallStore: @unchecked Sendable {
         // The names of a split call's two sides when neither is me, left then right, joined
         // by the unit separator as tags are.
         ("speakers-1", "ALTER TABLE calls ADD COLUMN speakers TEXT;"),
+        // What the retry pass did with every dictation and call segment, and the slow
+        // decodes made while the Mac is idle to score it against. Nothing here leaves the Mac.
+        // A record points at its row: a dictation's segment by (dictation_id, segment_idx),
+        // since Store rewrites those rows, or a call segment by its id. Times are seconds on
+        // the recording's timeline, where the references are placed too.
+        ("retries-1", """
+            CREATE TABLE segment_retries (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              source TEXT NOT NULL CHECK (source IN ('dictation', 'me', 'call', 'mix')),
+              dictation_id TEXT,
+              segment_idx INTEGER,
+              call_id TEXT,
+              call_segment_id INTEGER,
+              t0 REAL NOT NULL,
+              t1 REAL NOT NULL,
+              first_text TEXT NOT NULL,
+              retried_text TEXT,
+              logprob_before REAL NOT NULL,
+              logprob_after REAL,
+              flagged INTEGER NOT NULL,
+              kept INTEGER NOT NULL,
+              retry_seconds REAL NOT NULL,
+              changed INTEGER NOT NULL,
+              created_at REAL NOT NULL
+            );
+            CREATE INDEX segment_retries_dictation ON segment_retries(dictation_id) WHERE dictation_id IS NOT NULL;
+            CREATE INDEX segment_retries_call ON segment_retries(call_id, t0) WHERE call_id IS NOT NULL;
+            -- One slow decode of a dictation, or of a stretch of one side of a call. text is
+            -- NULL when it couldn't be made, with the reason, so it isn't tried forever.
+            CREATE TABLE retry_references (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              source TEXT NOT NULL CHECK (source IN ('dictation', 'me', 'call', 'mix')),
+              dictation_id TEXT,
+              call_id TEXT,
+              t0 REAL NOT NULL,
+              t1 REAL NOT NULL,
+              model TEXT NOT NULL,
+              text TEXT,
+              error TEXT,
+              seconds REAL NOT NULL,
+              created_at REAL NOT NULL
+            );
+            CREATE INDEX retry_references_dictation ON retry_references(dictation_id) WHERE dictation_id IS NOT NULL;
+            CREATE INDEX retry_references_call ON retry_references(call_id, t0) WHERE call_id IS NOT NULL;
+            ALTER TABLE dictations ADD COLUMN retry_ms INTEGER;
+            """),
     ]
 
     /// The names of the migrations this file has had.
@@ -429,7 +493,8 @@ public final class CallStore: @unchecked Sendable {
         try queue.sync { try db.query("SELECT name FROM voice_migrations ORDER BY rowid") { $0.text(0) } }
     }
 
-    private func migrate() throws {
+    /// Store runs this when it opens the file, so every connection finds the schema current.
+    static func migrate(_ db: SQLiteConnection) throws {
         try db.exec("CREATE TABLE IF NOT EXISTS voice_migrations (name TEXT PRIMARY KEY, applied_at REAL NOT NULL)")
         let applied = Set(try db.query("SELECT name FROM voice_migrations") { $0.text(0) })
         for migration in Self.migrations where !applied.contains(migration.name) {
@@ -462,7 +527,7 @@ public final class CallStore: @unchecked Sendable {
 
     private static let dictationColumns = """
         id, created_at, audio_path, duration, mode, whisper_model, raw_text, final_text, cleanup_model,
-        cleanup_system, record_ms, load_ms, transcribe_ms, cleanup_ms, paste_ms, error, origin
+        cleanup_system, record_ms, load_ms, transcribe_ms, cleanup_ms, paste_ms, error, origin, retry_ms
         """
 
     private static func readDictation(_ row: SQLiteRow) -> Dictation {
@@ -472,7 +537,7 @@ public final class CallStore: @unchecked Sendable {
                   cleanupSystem: row.string(9),
                   timings: Dictation.Timings(record: row.optionalInt(10), load: row.optionalInt(11),
                                              transcribe: row.optionalInt(12), cleanup: row.optionalInt(13),
-                                             paste: row.optionalInt(14)),
+                                             paste: row.optionalInt(14), retry: row.optionalInt(17)),
                   segments: [], error: row.string(15), origin: row.string(16).flatMap(Dictation.Origin.init))
     }
 

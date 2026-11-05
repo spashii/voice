@@ -44,7 +44,7 @@ func callCommand(_ arguments: [String], transcriber: Transcriber, whisper: Whisp
             print(try store.transcript(call.id))
             print("\(call.status.rawValue) \(call.error ?? "")")
         } else if let seconds = option("--record").flatMap(Double.init) {
-            let source = CallSources.choose(BlendDevices.load()) { InputDevices.id(forUID: $0) != nil }
+            let source = CallSources.automatic(CallSources.all(BlendDevices.load(), devices: InputDevices.list()))
             print("source \(source.name) \(source.channels.map(\.rawValue)) \(source.deviceUID ?? "default")")
             let call = try await recorder.start(source, transcriber: transcriber, whisper: whisper,
                                                 appBundleID: testCallBundleID, appName: "voice-cli call")
@@ -63,7 +63,7 @@ func callCommand(_ arguments: [String], transcriber: Transcriber, whisper: Whisp
                 print("call \(call.id) split \(call.split) audio \(call.audioPath ?? "")")
                 fflush(stdout)
             }
-            try? store.tagCall(call.id, add: ["test"])
+            _ = try? store.tagCall(call.id, add: ["test"])
             await recorder.waitForCompression()
             try await Task.sleep(for: .milliseconds(600))
             printer.cancel()

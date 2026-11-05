@@ -12,7 +12,8 @@ struct VoiceApp: App {
                 .environment(delegate.model)
                 .environment(delegate.calls)
         } label: {
-            Image(systemName: delegate.model.menuBarSymbol)
+            Image(delegate.model.menuBarImage)
+                .accessibilityLabel("Voice")
         }
 
         Settings {

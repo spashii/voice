@@ -4,7 +4,7 @@ Voice has three parts:
 
 - **VoiceCore** (`Core/Sources/VoiceCore`, Swift 6): records, transcribes, cleans up, stores, detects calls and serves MCP. It has no UI code. It builds on whisper.cpp's prebuilt xcframework (release b5454, which is v1.9.5, with Metal built in) and the system SQLite.
 - **voice-cli** (`Core/Sources/voice-cli`): runs the same code from a shell, with no window and no sound. Batch transcription, the call tests and the MCP server without the app all use it.
-- **Voice.app** (`app/Voice`, SwiftUI and AppKit): the menu bar, the indicator, the call prompt, Settings, the global shortcut (the KeyboardShortcuts package) and the paste. It decides when the core runs and shows the result. It has no recording or transcription logic of its own.
+- **Voice.app** (`app/Voice`, SwiftUI and AppKit): the menu bar, the indicator, the call prompt, Settings, the global shortcuts (the KeyboardShortcuts package) and the paste. It decides when the core runs and shows the result. It has no recording or transcription logic of its own.
 
 Beside them, `tools/` (zsh) builds, releases, syncs and fetches models, and `site/` is the website and the update feed.
 
@@ -58,10 +58,10 @@ Agents:
 
 - `VoiceApp.swift`: the menu, and the quit sequence.
 - `AppModel.swift`: the dictation state (idle, recording, transcribing, cleaning up, a notice), one pipeline per Whisper model, recovery at launch and the paste.
-- `Calls.swift` (`CallsModel`): detection to prompt, the source, record and stop, rebuild and compress at launch, and the warning when a call app reads the mix. Also the prompt panel and the menu and Settings parts.
+- `Calls.swift` (`CallsModel`): detection to prompt, the call shortcut, the source, record and stop, rebuild and compress at launch, and the warning when a call app reads the mix. Also the prompt panel and the menu and Settings parts.
 - `AgentAccess.swift`: runs the MCP server while the app runs, with the Settings switch, the addresses and the token.
 - `Updates.swift`: Sparkle, the Check for Updates button and the automatic switch.
-- `Indicator.swift`, `Paster.swift`, `Preferences.swift`, `SettingsView.swift`, `Setup.swift`, `Downloads.swift`: the pill, the paste, UserDefaults, Settings, the first-run window and the model downloads.
+- `Indicator.swift`, `Paster.swift`, `Preferences.swift`, `SettingsView.swift`, `Setup.swift`, `Downloads.swift`: the pills (a dictation's, and a call's while it records), the paste, UserDefaults, Settings, the first-run window and the model downloads.
 
 ## A dictation
 
@@ -82,14 +82,14 @@ At quit, the app stops the live session, closes the recording (kept, not deleted
 ## A call
 
 1. **Detect.** Every second `CallDetector` lists the processes using audio and credits each helper process to the app responsible for it. A call starts when a call app uses the microphone for 5 seconds, or a browser uses both microphone and speakers for 10. It ends once the app has used neither for 15 seconds. Voice, Blend, OpenSuperWhisper, Siri and macOS dictation are never calls.
-2. **Prompt.** If Ask to record calls is on, nothing is recording and the app wasn't dismissed, `CallsModel` shows "Record this call?" in a panel that never takes focus. Not now lasts until that app's call ends. The menu offers the same, and an agent can start a recording over MCP.
-3. **Source.** `CallSources.choose` reads Blend's `devices.json` (Blend's `docs/MIXES-FOR-APPS.md` describes it) and takes the first of: a split mix of two sources, any mix with System audio as one channel, the default microphone. A mix whose device isn't connected is passed over. In a split mix, a microphone is Me and an app or system sound is Call, whichever side Blend put them on. Two of a kind take their sources' names.
+2. **Prompt.** If Ask to record calls is on, nothing is recording and the app wasn't dismissed, `CallsModel` shows "Record this call?" in a panel that never takes focus. Not now lasts until that app's call ends. The call shortcut (Option+Shift+` unless changed) and the menu start a recording at any time, with or without a call app, and an agent can start one over MCP. A recording started for a call app ends with its call; one started with none runs until stopped. While it records, a second pill under the dictation one shows the clock and the key that stops it, and the menu bar glyph has all its pills filled and a dot.
+3. **Source.** `CallSources.all` lists what Settings offers under Record from: Blend's connected mixes from its `devices.json` (Blend's `docs/MIXES-FOR-APPS.md` describes it), then the system default, then the other inputs. A split mix is labelled with its sides, such as "Blend Mic (you left, call right)"; anything else is recorded as one channel and labelled "mix". Until one is chosen, `CallSources.automatic` takes the split mix if there is one and the system default otherwise, and a chosen input that isn't connected falls back to the same, with a notice. In a split mix, a microphone is Me and an app or system sound is Call, whichever side Blend put them on. Two of a kind take their sources' names.
 4. **Start.** `CallRecorder` points an engine at the source's device and taps it in the device's own format. A split source has to arrive as exactly two channels. If it doesn't, the call is created, failed with the reason and kept, and the same error is thrown. Otherwise the call is a row in `calls` with status recording and the WAV's path.
 5. **Ingest.** On the tap's thread `CallSession` writes the WAV at the device's rate. A split call has Me on the left and Call on the right, whatever order the device used. For each side it takes that channel (or the average of all, for a mix that isn't split), brings it to 16 kHz and feeds a `SpeechChunker`.
 6. **Chunk.** A frame is speech when it is 12 dB above a floor that falls at once and rises 0.3 dB a second, and above minus 50 dBFS. A chunk keeps 0.3 seconds before the speech and 0.2 after, ends after 0.5 seconds of quiet (0.25 once it passes 5 seconds), is cut at 15 seconds regardless, and is dropped if it has under 0.25 seconds of speech.
 7. **Transcribe.** One worker takes the chunks of both sides in the order they were cut and decodes each on the shared `Transcriber`, with the key terms and the same side's previous text as the prompt. It appends the segments to `CallStore` as each chunk is done. A segment's times are the chunk's offset in the call plus Whisper's own.
 8. **Read.** An agent waiting with a cursor sees a segment within half a second of its being written. The menu copies the transcript.
-9. **Stop.** From the menu, from `stop_recording`, or when the tracker says the call app's call is over. The engine stops, the status becomes transcribing, both chunkers flush their open speech, and the worker finishes. The call is then done, or failed with the reason. A write error outranks a transcription error.
+9. **Stop.** From the call shortcut, the menu, `stop_recording`, or when the tracker says the call app's call is over. The engine stops, the status becomes transcribing, both chunkers flush their open speech, and the worker finishes. The call is then done, or failed with the reason. A write error outranks a transcription error.
 10. **Compress.** A done call's WAV is encoded as AAC beside it, 48 kbps a channel at the WAV's rate and channels (about 45 MB an hour of stereo against 690 MB). The encoder's output is checked: same channels and rate, a length within 0.5 seconds of the WAV's, and the first 4096 frames decode. Only then does the call point at the `.m4a` and the WAV go. This runs at low priority, after the call's words are in.
 11. **If the input goes away.** The engine stops, and the call is finished as failed with "The input went away", keeping the WAV and the transcript so far. A configuration change that leaves the engine running changes nothing: the recording goes on.
 12. **At launch.** Calls still marked live whose audio exists are rebuilt: `CallRecorder.rebuild` reads the WAV (header repaired first) or the `.m4a`, runs it through a session with no file, and replaces the segments once the first chunk has decoded. Other live calls are failed. Then every done call still holding a WAV is compressed.
@@ -122,7 +122,7 @@ Quitting during a call closes the WAV without waiting for the transcript and lea
 
 - `Recorder` and `CallRecorder` run every device call on their own serial queues, and their `start` and `stop` are async.
 - `CallDetector` polls on its own queue.
-- The app lists devices, chooses a call source and reads a mix's readers in detached tasks (`refreshDevices`, `refreshSource`, `checkMixReaders`).
+- The app lists devices, chooses a call source and reads a mix's readers in detached tasks (`refreshDevices`, `refreshSources`, `checkMixReaders`).
 - The tap's thread converts, writes and cuts chunks. It never waits for Whisper, which has its own queue.
 
 **One whisper decode at a time.** A whisper.cpp context can't run two, and a second model on the GPU is more than a 16 GB Mac has.
@@ -165,7 +165,7 @@ Smaller rules:
 - **Polling the file for new segments.** The writer may be another process, so nothing in memory can say a segment landed. One indexed query every 500 ms is cheap.
 - **AAC after the transcript, not instead of the WAV.** A WAV survives any ending, and an hour of 48 kHz stereo is 690 MB. AAC at 48 kbps a channel keeps speech clear at about a sixteenth of that.
 - **Key terms on, the fix off.** On a set of 39 real dictations the key terms took names from 5 of 13 to 9 of 13 for no added time. The fix reached 13 of 13 for a median 2.3 seconds more and 13 seconds at the 95th percentile, which is too slow for every dictation. The fix's default model is `qwen3.5:9b`, which runs at about 40 tokens a second in 7.7 GB on a 16 GB MacBook Air. The key terms start empty: the names worth listing are your own.
-- **One shortcut to start and stop, and nothing else stops.** No stray key can throw a recording away.
+- **One shortcut to start and stop, and nothing else stops.** No stray key can throw a recording away. A call has a shortcut of its own, so dictating during a call never ends it.
 - **The hardened runtime in Release only.** It won't load the embedded Whisper framework under a self-signed certificate, so Debug builds go without it. Releases are signed with a Developer ID and notarized, with it on.
 
 ## Limits

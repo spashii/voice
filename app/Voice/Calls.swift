@@ -1,12 +1,13 @@
 import AppKit
+import KeyboardShortcuts
 import Observation
 import SwiftUI
 import VoiceCore
 
 /// Call recording in the app: notices calls, offers to record them, records through
-/// CallRecorder, and starts and stops recordings for agents over MCP. Whisper is the
-/// dictation pipeline's, so dictating during a call queues behind the call's chunks
-/// rather than loading a second model onto the GPU.
+/// CallRecorder on the call shortcut or the menu, and starts and stops recordings for
+/// agents over MCP. Whisper is the dictation pipeline's, so dictating during a call queues
+/// behind the call's chunks rather than loading a second model onto the GPU.
 @MainActor @Observable
 final class CallsModel {
     /// On by default; off means no prompt, though the menu still offers to record.
@@ -16,10 +17,30 @@ final class CallsModel {
             updatePrompt()
         }
     }
-    private(set) var source = CallSource.defaultMicrophone
+    /// What Settings offers under Record from: Blend's mixes, the system default and the
+    /// other inputs, listed off the main thread.
+    private(set) var sources: [CallSource] = [.systemDefault]
+    /// The input chosen under Record from, by UID, empty for the system default. Nil until
+    /// one is chosen, so the split mix records as soon as Blend has one.
+    var chosenSource: String? {
+        didSet {
+            UserDefaults.standard.set(chosenSource, forKey: "callSource")
+            source = CallSources.choose(sources, chosen: chosenSource)
+        }
+    }
+    /// What the next call records from: the chosen input, or the automatic one while the
+    /// chosen one isn't connected.
+    private(set) var source = CallSource.systemDefault
     /// Apps in a call now, by the detector.
     private(set) var detected: [DetectedCall] = []
-    private(set) var recording: Call?
+    private(set) var recording: Call? {
+        didSet {
+            if (oldValue == nil) != (recording == nil) { model?.refreshIndicator() }
+        }
+    }
+    /// Between the shortcut and the recorder starting, so a second press doesn't start a
+    /// second call.
+    private(set) var starting = false
     /// A stopped or cut-off call's chunks still going through whisper.
     private(set) var transcribing = false
     private(set) var recent: [Call] = []
@@ -40,6 +61,7 @@ final class CallsModel {
 
     init() {
         askToRecord = UserDefaults.standard.object(forKey: "askToRecordCalls") as? Bool ?? true
+        chosenSource = UserDefaults.standard.string(forKey: "callSource")
     }
 
     /// Marks calls a crash or quit cut off, rebuilds their transcripts from their audio, and
@@ -78,12 +100,13 @@ final class CallsModel {
                 self.error = "Can't open the call history: \(error)"
             }
         }
-        let detector = CallDetector { calls in
-            Task { @MainActor [weak self] in self?.detectedChanged(calls) }
+        let detector = CallDetector { [weak self] calls in
+            Task { @MainActor in self?.detectedChanged(calls) }
         }
         detector.start()
         self.detector = detector
-        Task { await refreshSource() }
+        KeyboardShortcuts.onKeyUp(for: .recordCall) { [weak self] in self?.toggleRecording() }
+        Task { await refreshSources() }
         // The call app can switch its microphone at any point in a call, so this is polled
         // rather than checked once.
         Task { [weak self] in
@@ -101,18 +124,33 @@ final class CallsModel {
         await recorder?.abandon()
     }
 
-    /// Blend's devices.json and the connected devices, read off the main thread: both ask
-    /// coreaudiod, which can hang.
-    func refreshSource() async {
-        source = await Task.detached(priority: .utility) {
-            CallSources.choose(BlendDevices.load()) { InputDevices.id(forUID: $0) != nil }
+    /// Blend's devices.json and the connected inputs, read off the main thread: listing
+    /// inputs asks coreaudiod, which can hang.
+    func refreshSources() async {
+        sources = await Task.detached(priority: .utility) {
+            CallSources.all(BlendDevices.load(), devices: InputDevices.list())
         }.value
+        source = CallSources.choose(sources, chosen: chosenSource)
+    }
+
+    /// The call shortcut: stops the recording, or starts one now. A call app in a call names
+    /// the recording and ends it when its call ends; with none, it records until stopped.
+    func toggleRecording() {
+        if recording != nil {
+            Task { await stop() }
+        } else if !starting {
+            recordFromMenu(detected.first)
+        }
     }
 
     func record(_ app: DetectedCall? = nil, title: String? = nil) async throws -> Call {
         guard let recorder, let model else { throw VoiceError.store("Voice is still starting.") }
         if let recording { return recording }
-        await refreshSource()
+        guard !starting else { throw VoiceError.store("A call recording is already starting.") }
+        starting = true
+        defer { starting = false }
+        await refreshSources()
+        let source = source
         let call: Call
         do {
             call = try await recorder.start(source, transcriber: model.currentPipeline().transcriber,
@@ -130,6 +168,9 @@ final class CallsModel {
         recordingFor = app?.bundleID
         error = nil
         updatePrompt()
+        if let chosenSource, chosenSource != source.id {
+            model.notice("The input chosen for calls isn't connected, so \(source.name) is recording.")
+        }
         return call
     }
 
@@ -311,21 +352,24 @@ struct CallPromptView: View {
     }
 }
 
-/// The menu's call items: an offer while a call is detected, the clock and Stop while one
-/// records.
+/// The menu's call items: Record at any time, the clock and Stop while a call records, each
+/// with the call shortcut.
 struct CallMenuItems: View {
     @Environment(AppModel.self) private var model
     @Environment(CallsModel.self) private var calls
 
     var body: some View {
+        let keys = KeyboardShortcuts.getShortcut(for: .recordCall).map { "  \($0)" } ?? ""
         if let call = calls.recording {
             Text("Recording call " + AppModel.clock(Date().timeIntervalSince(call.startedAt)))
             if model.preferences.runPrompt {
                 Text("Whisper only during calls")
             }
-            Button("Stop recording") { Task { await calls.stop() } }
-        } else if let app = calls.detected.first {
-            Button("Record this call") { calls.recordFromMenu(app) }
+            Button("Stop recording" + keys) { Task { await calls.stop() } }
+        } else {
+            let app = calls.detected.first
+            Button((app == nil ? "Record a call" : "Record this call") + keys) { calls.recordFromMenu(app) }
+                .disabled(calls.starting)
         }
         if let warning = calls.warning {
             Text(warning)
@@ -360,27 +404,36 @@ struct RecentCalls: View {
     }
 }
 
-/// Settings: whether to ask, and where the audio comes from.
+/// Settings: the shortcut, what a call records from, and whether to ask. Anything more shows
+/// only when it matters: the rule for a split mix, and a call app reading the mix.
 struct CallsSettingsSection: View {
     @Environment(CallsModel.self) private var calls
 
     var body: some View {
         @Bindable var calls = calls
+        let selected = calls.chosenSource ?? calls.source.id
         Section("Calls") {
-            Toggle("Ask to record calls", isOn: $calls.askToRecord)
-            LabeledContent("Source") {
-                Text(calls.source.split ? "\(calls.source.name), both sides apart" : calls.source.name)
+            KeyboardShortcuts.Recorder("Shortcut:", name: .recordCall)
+            Picker("Record from", selection: Binding(get: { selected }, set: { calls.chosenSource = $0 })) {
+                ForEach(calls.sources) { source in
+                    Text(source.label).tag(source.id)
+                }
+                if !calls.sources.contains(where: { $0.id == selected }) {
+                    Text("Not connected").tag(selected)
+                }
             }
-            if calls.source.fromBlend {
+            if calls.sources.first(where: { $0.id == selected })?.split == true {
                 Text(CallSource.mixRule)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else {
-                Text(CallSource.blendHint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
+            if let warning = calls.warning {
+                Text(warning)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+            Toggle("Ask to record calls", isOn: $calls.askToRecord)
         }
-        .task { await calls.refreshSource() }
+        .task { await calls.refreshSources() }
     }
 }

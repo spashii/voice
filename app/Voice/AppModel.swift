@@ -9,6 +9,9 @@ extension KeyboardShortcuts.Name {
     /// The only way to start and stop: nothing else ends a recording, so no stray key can
     /// throw one away.
     static let dictate = Self("dictate", initial: .init(.backtick, modifiers: [.option]))
+    /// Starts a call recording whether or not a call app is in a call, and stops it. Its own
+    /// key, so dictating stays on Option+` during a call.
+    static let recordCall = Self("recordCall", initial: .init(.backtick, modifiers: [.option, .shift]))
 }
 
 @MainActor @Observable
@@ -87,11 +90,14 @@ final class AppModel {
         microphoneAllowed && accessibilityAllowed && downloads.state(preferences.whisperModel) == .ready
     }
 
-    var menuBarSymbol: String {
+    /// The menu bar glyph, from Assets: three pills like the app icon, outlined when idle,
+    /// the centre one filled while dictating, dots while working, and all filled with a dot
+    /// while a call records. A dictation shows over the call, which the indicator still shows.
+    var menuBarImage: String {
         switch phase {
-        case .recording: "record.circle.fill"
-        case .transcribing, .cleaningUp: "ellipsis.circle"
-        case .idle, .notice: "waveform"
+        case .recording: "MenuBarDictating"
+        case .transcribing, .cleaningUp: "MenuBarWorking"
+        case .idle, .notice: calls?.recording != nil ? "MenuBarCall" : "MenuBarIdle"
         }
     }
 
@@ -247,7 +253,13 @@ final class AppModel {
         case .allowAccessibility: Paster.askForAccess()
         }
         phase = .idle
-        indicator.hide()
+        refreshIndicator()
+    }
+
+    /// Shows the indicator while a dictation, a notice or a call needs it, and hides it once
+    /// none does.
+    func refreshIndicator() {
+        if phase == .idle && calls?.recording == nil { indicator.hide() } else { indicator.show() }
     }
 
     private func start(_ mode: Dictation.Mode) {
@@ -409,7 +421,7 @@ final class AppModel {
             show("The chosen microphone isn't connected, so the default one recorded.")
         } else {
             phase = .idle
-            indicator.hide()
+            refreshIndicator()
         }
     }
 
@@ -432,7 +444,7 @@ final class AppModel {
             try? await Task.sleep(for: .seconds(action == nil ? 4 : 10))
             guard !Task.isCancelled, case .notice = phase else { return }
             phase = .idle
-            indicator.hide()
+            refreshIndicator()
         }
     }
 

@@ -1,14 +1,18 @@
 import AppKit
+import KeyboardShortcuts
 import SwiftUI
+import VoiceCore
 
-/// A small pill at the top of the screen while Voice listens or works. It never takes
-/// focus, so the paste lands in the app that was in front.
+/// A small pill at the top of the screen while Voice listens or works, and a second one for
+/// as long as a call records. It never takes focus, so the paste lands in the app that was
+/// in front.
 @MainActor
 final class Indicator {
     private let model: AppModel
     private var panel: NSPanel?
-    /// Room for the pill at its largest, with the live text; the panel is clear around it.
-    private static let size = NSSize(width: 440, height: 80)
+    /// Room for the dictation pill at its largest, with the live text, and the call pill
+    /// under it; the panel is clear around them.
+    private static let size = NSSize(width: 440, height: 116)
 
     init(model: AppModel) {
         self.model = model
@@ -52,6 +56,24 @@ struct IndicatorView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
+        VStack(spacing: 6) {
+            if model.phase != .idle {
+                dictation
+                    .padding(.vertical, 6)
+                    .frame(minHeight: 32)
+                    // A capsule at one line's height, a rounded box once the text adds a second.
+                    .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            if let call = model.calls?.recording {
+                CallPill(call: call)
+            }
+        }
+        .font(.system(size: 12, weight: .medium))
+        .padding(.top, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private var dictation: some View {
         HStack(spacing: 8) {
             switch model.phase {
             case .recording(_, let began):
@@ -85,14 +107,7 @@ struct IndicatorView: View {
                 EmptyView()
             }
         }
-        .font(.system(size: 12, weight: .medium))
         .padding(.horizontal, 14)
-        .padding(.vertical, 6)
-        .frame(minHeight: 32)
-        // A capsule at one line's height, a rounded box once the text adds a second.
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.top, 4)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     /// About two lines of the running text, from a word boundary.
@@ -112,5 +127,24 @@ private struct LevelBar: View {
             .overlay(alignment: .leading) {
                 Capsule().fill(.green).frame(width: 48 * CGFloat(level), height: 4)
             }
+    }
+}
+
+/// Shown for the whole of a call recording, so it is never left running unnoticed: the
+/// clock, and the key that stops it.
+private struct CallPill: View {
+    let call: Call
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle().fill(.red).frame(width: 8, height: 8)
+            Text("Recording call")
+            Text(call.startedAt, style: .timer).monospacedDigit().foregroundStyle(.secondary).fixedSize()
+            Text(KeyboardShortcuts.getShortcut(for: .recordCall).map { "\($0.description) stops" } ?? "Stop it from the menu")
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 28)
+        .background(.regularMaterial, in: Capsule())
     }
 }

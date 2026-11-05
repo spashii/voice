@@ -1,7 +1,7 @@
 import Foundation
 
 /// What a call is recorded from, and which side of the call each input channel carries.
-public struct CallSource: Sendable, Equatable {
+public struct CallSource: Sendable, Equatable, Identifiable {
     /// The input's Core Audio UID; nil records the default microphone.
     public var deviceUID: String?
     public var name: String
@@ -25,13 +25,22 @@ public struct CallSource: Sendable, Equatable {
 
     public var split: Bool { channels.count == 2 }
 
-    public static let defaultMicrophone = CallSource(deviceUID: nil, name: "Default microphone", channels: [.mix],
-                                                     fromBlend: false)
+    /// What Settings stores for it: the device's UID, or empty for the system default.
+    public var id: String { deviceUID ?? "" }
 
-    /// Shown once in Settings when no Blend mix carries the other side of a call.
-    public static let blendHint = "For both sides, make a Mic and system audio mix in Blend"
+    /// How Settings lists it. A split mix says which side Blend put on each channel; anything
+    /// else is recorded as one channel, both sides mixed.
+    public var label: String {
+        guard split else { return "\(name) (mix)" }
+        let sides = speakers ?? channels.map { $0 == .me ? "you" : "call" }
+        return "\(name) (\(sides[0]) left, \(sides[1]) right)"
+    }
 
-    /// Shown in Settings under a Blend mix: Blend leaves every app reading a mix out of that
+    /// Whichever input macOS has as its default when the call starts.
+    public static let systemDefault = CallSource(deviceUID: nil, name: "System default", channels: [.mix],
+                                                 fromBlend: false)
+
+    /// Shown in Settings under a split mix: Blend leaves every app reading a mix out of that
     /// mix's System audio, so a call app reading it would record as silence.
     public static let mixRule = "Keep your call app on its usual microphone. Only Voice reads this mix."
 
@@ -78,21 +87,38 @@ public struct BlendDevices: Decodable, Sendable {
 }
 
 public enum CallSources {
-    /// A split mix first, since only it tells the two sides apart; then any mix carrying
-    /// System audio, recorded as one channel; then the default microphone, which hears only
-    /// this side unless the call plays through speakers. A mix whose device isn't connected
-    /// (Blend isn't running) is passed over rather than recorded as silence.
-    public static func choose(_ blend: BlendDevices?, connected: (String) -> Bool = { _ in true }) -> CallSource {
-        let mixes = (blend?.mixes ?? []).filter { connected($0.deviceUID) }
-        if let mix = mixes.first(where: { $0.split && $0.sources.count == 2 && labels($0) != nil }),
-           let (channels, speakers) = labels(mix) {
-            return CallSource(deviceUID: mix.deviceUID, name: mix.name, channels: channels, fromBlend: true,
-                              speakers: speakers)
+    /// Every input a call can record from, as Settings lists them: Blend's connected mixes
+    /// in Blend's order, then the system default, then the other inputs by name. A mix whose
+    /// device isn't connected (Blend isn't running) is left out rather than recorded as
+    /// silence.
+    public static func all(_ blend: BlendDevices?, devices: [InputDevice]) -> [CallSource] {
+        let connected = Set(devices.map(\.uid))
+        let mixes = (blend?.mixes ?? []).filter { connected.contains($0.deviceUID) }
+        let mixUIDs = Set(mixes.map(\.deviceUID))
+        let others = devices.filter { !mixUIDs.contains($0.uid) }.map {
+            CallSource(deviceUID: $0.uid, name: $0.name, channels: [.mix], fromBlend: false)
         }
-        if let mix = mixes.first(where: { $0.sources.contains { $0.kind == "system" } }) {
+        return mixes.map(source) + [.systemDefault] + others
+    }
+
+    /// The split mix if there is one, since only it tells the two sides apart; otherwise the
+    /// system default, which hears only this side unless the call plays through speakers.
+    public static func automatic(_ sources: [CallSource]) -> CallSource {
+        sources.first(where: \.split) ?? .systemDefault
+    }
+
+    /// The input chosen in Settings while it is connected, and the automatic one otherwise:
+    /// a call is never lost to an unplugged input. `chosen` is nil until one is chosen.
+    public static func choose(_ sources: [CallSource], chosen: String?) -> CallSource {
+        chosen.flatMap { id in sources.first { $0.id == id } } ?? automatic(sources)
+    }
+
+    static func source(_ mix: BlendDevices.Mix) -> CallSource {
+        guard let (channels, speakers) = labels(mix) else {
             return CallSource(deviceUID: mix.deviceUID, name: mix.name, channels: [.mix], fromBlend: true)
         }
-        return .defaultMicrophone
+        return CallSource(deviceUID: mix.deviceUID, name: mix.name, channels: channels, fromBlend: true,
+                          speakers: speakers)
     }
 
     /// The side each channel of a split mix carries. A microphone is me and app or system

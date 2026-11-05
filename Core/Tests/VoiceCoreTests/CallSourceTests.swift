@@ -23,33 +23,90 @@ private let micOnly = """
       {"channel": "both", "kind": "device", "name": "Mic", "uid": "BuiltInMicrophoneDevice"}]}
     """
 
+/// The inputs Core Audio would list with these Blend mixes connected, and the built-in microphone.
+private func inputs(_ uids: String...) -> [InputDevice] {
+    uids.map { InputDevice(uid: $0, name: $0 == "BuiltInMicrophoneDevice" ? "MacBook Air Microphone" : $0) }
+}
+
+/// The first mix in a devices.json, as a source.
+private func first(_ blend: BlendDevices) -> CallSource {
+    CallSources.source(blend.mixes[0])
+}
+
 @Suite struct CallSourceTests {
     @Test func prefersTheSplitMix() throws {
         let blend = try devices(#"{"version": 1, "mixes": [\#(micOnly), \#(mixedWithSystem), \#(micAndSystem)]}"#)
-        let source = CallSources.choose(blend)
+        let sources = CallSources.all(blend, devices: inputs("app.blend.mix.mic", "app.blend.mix.mixed",
+                                                            "app.blend.mix.split", "BuiltInMicrophoneDevice"))
+        let source = CallSources.automatic(sources)
         #expect(source.deviceUID == "app.blend.mix.split")
         #expect(source.channels == [.me, .call])
         #expect(source.split && source.fromBlend)
+        #expect(CallSources.choose(sources, chosen: nil) == source)
     }
 
-    @Test func fallsBackToAMixWithSystemAudioAsOneChannel() throws {
+    @Test func withoutASplitMixRecordsTheSystemDefault() throws {
         let blend = try devices(#"{"version": 1, "mixes": [\#(micOnly), \#(mixedWithSystem)]}"#)
-        let source = CallSources.choose(blend)
-        #expect(source.deviceUID == "app.blend.mix.mixed")
-        #expect(source.channels == [.mix])
-        #expect(source.fromBlend)
-    }
-
-    @Test func withoutAUsableMixRecordsTheDefaultMicrophone() throws {
-        #expect(CallSources.choose(nil) == .defaultMicrophone)
-        #expect(CallSources.choose(try devices(#"{"version": 1, "mixes": [\#(micOnly)]}"#)) == .defaultMicrophone)
-        #expect(!CallSource.defaultMicrophone.fromBlend)
+        let devices = inputs("app.blend.mix.mic", "app.blend.mix.mixed", "BuiltInMicrophoneDevice")
+        #expect(CallSources.automatic(CallSources.all(blend, devices: devices)) == .systemDefault)
+        #expect(CallSources.automatic(CallSources.all(nil, devices: devices)) == .systemDefault)
+        #expect(CallSources.automatic([]) == .systemDefault)
+        #expect(!CallSource.systemDefault.fromBlend && CallSource.systemDefault.deviceUID == nil)
     }
 
     @Test func skipsAMixWhoseDeviceIsMissing() throws {
         let blend = try devices(#"{"version": 1, "mixes": [\#(micAndSystem), \#(mixedWithSystem)]}"#)
-        let source = CallSources.choose(blend) { $0 != "app.blend.mix.split" }
-        #expect(source.deviceUID == "app.blend.mix.mixed")
+        let sources = CallSources.all(blend, devices: inputs("app.blend.mix.mixed", "BuiltInMicrophoneDevice"))
+        #expect(!sources.contains { $0.deviceUID == "app.blend.mix.split" })
+        #expect(CallSources.automatic(sources) == .systemDefault)
+    }
+
+    @Test func aChosenInputIsUsedWhileItIsConnected() throws {
+        let blend = try devices(#"{"version": 1, "mixes": [\#(micAndSystem)]}"#)
+        let sources = CallSources.all(blend, devices: inputs("app.blend.mix.split", "BuiltInMicrophoneDevice"))
+        #expect(CallSources.choose(sources, chosen: "BuiltInMicrophoneDevice").deviceUID == "BuiltInMicrophoneDevice")
+        #expect(CallSources.choose(sources, chosen: "") == .systemDefault)
+        // Unplugged since it was chosen: the split mix records rather than nothing.
+        #expect(CallSources.choose(sources, chosen: "USBMic").deviceUID == "app.blend.mix.split")
+    }
+
+    @Test func listsMixesFirstLabelledByTheirSides() throws {
+        let blend = try devices(#"{"version": 1, "mixes": [\#(micOnly), \#(micAndSystem), \#(mixedWithSystem)]}"#)
+        let sources = CallSources.all(blend, devices: inputs("app.blend.mix.mic", "app.blend.mix.mixed",
+                                                            "app.blend.mix.split", "BuiltInMicrophoneDevice",
+                                                            "ZoomAudioDevice"))
+        #expect(sources.map(\.label) == [
+            "Blend Mic (mix)",
+            "Mic and system audio (you left, call right)",
+            "Everything (mix)",
+            "System default (mix)",
+            "MacBook Air Microphone (mix)",
+            "ZoomAudioDevice (mix)",
+        ])
+        #expect(sources.map(\.id) == ["app.blend.mix.mic", "app.blend.mix.split", "app.blend.mix.mixed", "",
+                                      "BuiltInMicrophoneDevice", "ZoomAudioDevice"])
+        #expect(sources.map(\.fromBlend) == [true, true, true, false, false, false])
+        // A non-split input is one channel, whichever device it is.
+        #expect(sources.filter { !$0.split }.allSatisfy { $0.channels == [.mix] })
+
+        let swapped = try devices("""
+            {"mixes": [{"deviceUID": "d", "name": "Blend Call", "split": true, "sources": [
+              {"channel": "left", "kind": "app", "name": "Zoom", "bundleID": "us.zoom.xos"},
+              {"channel": "right", "kind": "device", "name": "Mic", "uid": "m"}]}]}
+            """)
+        #expect(first(swapped).label == "Blend Call (call left, you right)")
+        let twoApps = try devices("""
+            {"mixes": [{"deviceUID": "d", "name": "Two apps", "split": true, "sources": [
+              {"channel": "left", "kind": "app", "name": "Zoom", "bundleID": "us.zoom.xos"},
+              {"channel": "right", "kind": "system", "name": "System audio"}]}]}
+            """)
+        #expect(first(twoApps).label == "Two apps (Zoom left, System audio right)")
+        // Split in Blend but with one source: nothing to tell apart, so it is one channel.
+        let lone = try devices("""
+            {"mixes": [{"deviceUID": "d", "name": "Lone", "split": true, "sources": [
+              {"channel": "left", "kind": "device", "name": "Mic", "uid": "m"}]}]}
+            """)
+        #expect(first(lone).label == "Lone (mix)" && !first(lone).split)
     }
 
     @Test func labelsChannelsByWhatTheyCarry() throws {
@@ -58,15 +115,15 @@ private let micOnly = """
               {"channel": "left", "kind": "app", "name": "Zoom", "bundleID": "us.zoom.xos"},
               {"channel": "right", "kind": "device", "name": "Mic", "uid": "m"}]}]}
             """)
-        #expect(CallSources.choose(swapped).channels == [.call, .me])
+        #expect(first(swapped).channels == [.call, .me])
         let twoMics = try devices("""
             {"mixes": [{"deviceUID": "d", "name": "Two mics", "split": true, "sources": [
               {"channel": "left", "kind": "device", "name": "A", "uid": "a"},
               {"channel": "right", "kind": "device", "name": "B", "uid": "b"}]}]}
             """)
-        #expect(CallSources.choose(twoMics).channels == [.me, .call])
-        #expect(CallSources.choose(twoMics).speakers == ["A", "B"])
-        #expect(CallSources.choose(swapped).speakers == nil)
+        #expect(first(twoMics).channels == [.me, .call])
+        #expect(first(twoMics).speakers == ["A", "B"])
+        #expect(first(swapped).speakers == nil)
         #expect(CallSegment.Channel.me.label == "Me" && CallSegment.Channel.call.label == "Call")
     }
 
@@ -76,10 +133,10 @@ private let micOnly = """
               {"channel": "left", "kind": "app", "name": "Zoom", "bundleID": "us.zoom.xos"},
               {"channel": "right", "kind": "system", "name": "System audio"}]}]}
             """)
-        let source = CallSources.choose(twoApps)
+        let source = first(twoApps)
         #expect(source.channels == [.me, .call])
         #expect(source.speakers == ["Zoom", "System audio"])
-        #expect(try CallSources.choose(devices(#"{"version": 1, "mixes": [\#(micAndSystem)]}"#)).speakers == nil)
+        #expect(try first(devices(#"{"version": 1, "mixes": [\#(micAndSystem)]}"#)).speakers == nil)
 
         let segments = [
             CallSegment(id: 1, callID: "c", channel: .me, startMs: 0, endMs: 1000, text: "hi", avgLogprob: nil,

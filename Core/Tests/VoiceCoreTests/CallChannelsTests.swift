@@ -44,7 +44,7 @@ private func tones(_ frequencies: [Double]) -> AVAudioPCMBuffer {
             #expect(channels.order == order)
             #expect(channels.speakers == nil)
         }
-        #expect(try CallChannels(.defaultMicrophone, inputChannels: 1).order == [0])
+        #expect(try CallChannels(.systemDefault, inputChannels: 1).order == [0])
     }
 
     @Test func aSplitMixWithoutTwoChannelsIsRefused() {

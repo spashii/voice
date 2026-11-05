@@ -106,7 +106,7 @@ private struct AboutSection: View {
                 }
             }
             Toggle("Check for updates automatically", isOn: $updates.automatic)
-            Help("Voice works on this Mac and collects nothing. It goes online only to download the speech model and to check for updates. The fix step uses Ollama on this Mac, and the MCP server leaves it only if you put it on your tailnet.")
+            Help("Voice works on this Mac, and your audio stays on it. It goes online only to download the speech model and to check for updates. The fix step uses Ollama on this Mac, and the MCP server leaves it only if you put it on your tailnet.")
             Button("Licenses") { Self.openLicenses() }
                 .help("Voice's license and those of the libraries it includes")
         }

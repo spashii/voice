@@ -94,7 +94,7 @@ To reach it from your other devices, put it on your tailnet with Tailscale Serve
 
 ## Privacy
 
-Voice works entirely on your Mac. It has no analytics and no accounts. It goes online only to download the speech models, once, from Hugging Face, and to check for updates with [Sparkle](https://sparkle-project.org). Update checks and downloads go through apps.idea2prod.in, which counts them by app, version and country and never stores your IP address. Whisper runs on the GPU, and the fix step talks to Ollama on `127.0.0.1`.
+Voice records and transcribes on your Mac, and your audio stays there. It has no accounts. It goes online only to download the speech models, once, from Hugging Face, and to check for updates with [Sparkle](https://sparkle-project.org). Update checks and downloads go through apps.idea2prod.in, which counts them by app, version and country and never stores your IP address. Whisper runs on the GPU, and the fix step talks to Ollama on `127.0.0.1`.
 
 The MCP server listens on `127.0.0.1` only and answers nothing without the token. It reaches other devices only if you put it on your tailnet with Tailscale Serve, and then only inside your tailnet. A switch in Settings turns it off.
 

@@ -24,6 +24,7 @@ let package = Package(
             linkerSettings: [.linkedLibrary("sqlite3")]
         ),
         .executableTarget(name: "voice-cli", dependencies: ["VoiceCore", "whisper"]),
-        .testTarget(name: "VoiceCoreTests", dependencies: ["VoiceCore"]),
+        // whisper too, so a test can check the tokenizer against a fully loaded model.
+        .testTarget(name: "VoiceCoreTests", dependencies: ["VoiceCore", "whisper"]),
     ]
 )

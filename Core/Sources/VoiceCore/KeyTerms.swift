@@ -254,6 +254,7 @@ actor KeyTermsEditor {
 
     /// Takes out what an add added, or puts back what a remove removed, as far as the list
     /// still allows: terms changed since in Settings stay as they are.
+    @discardableResult
     func undo(_ id: Int64, client: String?) async throws -> Edit {
         let edit = try store.checkUndoable(id)
         let before = edit.before?.terms ?? []

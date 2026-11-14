@@ -39,7 +39,7 @@
    "@type": "Offer",
    "price": "0",
    "priceCurrency": "USD",
-   "description": "Free forever for the first 50 early access users. The next 50 pay $25, then a lifetime license is $49. Prices are in euros in Europe."
+   "description": "Free forever for the first 50 people. After that, a one-time license is $49. Prices are in euros in Europe."
   },
   "author": {
    "@type": "Person",
@@ -56,7 +56,15 @@
     "name": "Should I ask before I transcribe a call?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "Yes. Ask before you press Record, and don't record if they say no. People do mind, and with no bot in the call they only know if you tell them. You could say: \"Can I transcribe this for my notes? It stays on my Mac and the audio is deleted within a week.\" For me it's personal. I'm not a native English speaker, and recording lets me stay present in the call instead of scrambling for notes. I take my notes afterwards. By default the audio is deleted after 7 days and the transcript after 30. In the Data retention settings you can delete the audio as soon as it's transcribed, or after 1 day."
+     "text": "Yes. Ask before you press Record, and don't record if they say no. People do mind, and with no bot in the call they only know if you tell them. You could say: \"Can I transcribe this for my notes? It stays on my Mac and the audio is deleted within a week.\" For me it's personal. I'm not a native English speaker, and recording lets me stay present in the call instead of scrambling for notes. I take my notes afterwards. By default the audio is deleted after 7 days and the transcript after 30. In Settings, Setup, you can delete the audio as soon as it's transcribed, or after 1 day."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "What does it cost?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "Free forever for the first 50 people. After that, it's $49. You pay once, with no subscription, unlike apps that run in the cloud."
     }
    },
    {
@@ -69,34 +77,26 @@
    },
    {
     "@type": "Question",
-    "name": "What will it cost?",
+    "name": "Does it work with Slack, Teams, Google Meet and WhatsApp?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "Free forever for the first 50 early access users. The next 50 pay $25, then a lifetime license is $49. Prices are in euros in Europe."
+     "text": "Yes, and with Zoom, FaceTime, Discord, Signal and Telegram too. Calls in a browser tab work as well."
     }
    },
    {
     "@type": "Question",
-    "name": "How is it different from Handy and OpenSuperWhisper?",
+    "name": "Which languages does it understand?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "At the core they're close, and I learned a lot from both. All three run on your Mac. Handy also runs Parakeet and works on Windows and Linux. Dictate adds three things: retries on unsure words, online calls with both sides kept apart and a local MCP server for your agents."
+     "text": "English works best. Spanish, French, German, Italian, Portuguese, Dutch, Japanese, Chinese and Korean work well too, and Dictate picks up the language on its own. Other languages work with more mistakes. For those, choose Large v3 in Settings, Model."
     }
    },
    {
     "@type": "Question",
-    "name": "Is it open source?",
+    "name": "Will it run on my Mac?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "No. It is source available under FSL-1.1-MIT. You can read, change and run the code. You cannot offer it in a commercial product that competes with it. Each version becomes MIT two years after release, and versions up to 0.11.0 already are. The code and license are on GitHub."
-    }
-   },
-   {
-    "@type": "Question",
-    "name": "Why do I need to activate it?",
-    "acceptedAnswer": {
-     "@type": "Answer",
-     "text": "Dictate is free, and I want to know who uses it. Your email gets the code, and I might write to hear how you use Dictate and what's missing. Tell me to stop and I will. The app does not sign in and does not report what you do."
+     "text": "Yes, if your Mac has an M1 chip or newer and macOS 15 or later."
     }
    },
    {
@@ -104,31 +104,39 @@
     "name": "What does it ask permission for?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "Microphone, to hear you. Accessibility, to paste into the app you are in. Without it your text waits on the clipboard. Call audio, to hear the other side of an online call. It records only the call app's sound. You can skip it and still dictate."
+     "text": "Your microphone, to hear you. Accessibility, to paste the text into the app you're in. Call audio, to hear the other people on a call. You can skip call audio and still dictate."
     }
    },
    {
     "@type": "Question",
-    "name": "What can my agent see?",
+    "name": "Why do I need to activate it?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "Your dictations and call transcripts, through the tools you leave on. The server listens only on your Mac and needs the token from the Agents settings. Tools that record or change anything start off. Your agent reads what the other side of a call says, and that could steer it."
+     "text": "I want to know who uses Dictate. You enter your email once and get a code. I might write to ask how you use it and what's missing. Tell me to stop and I will. The app never signs in and never reports what you do."
     }
    },
    {
     "@type": "Question",
-    "name": "I use OpenSuperWhisper, which also uses Option+`. Will they clash?",
+    "name": "Can an AI assistant read my transcripts?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "Yes. Change the shortcut in one of them. In Dictate it is in the Shortcuts settings. If OpenSuperWhisper already has the speech model, Dictate reuses it instead of downloading 1.6 GB again."
+     "text": "Only if you decide to connect one, such as Claude. It can then read your dictations and calls. It can't record anything unless you allow it in Settings, Agents. Pick one you trust, because what it does with your text is up to it."
     }
    },
    {
     "@type": "Question",
-    "name": "Which call apps work?",
+    "name": "How is it different from other dictation apps?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "Zoom, Teams, Slack, Discord, FaceTime, WhatsApp, Signal, Telegram, Webex, Skype and Element. Calls in a browser tab such as Meet work too."
+     "text": "Handy and OpenSuperWhisper are my favorites, and I learned a lot from both. Dictate adds three things. It listens again when it's unsure of a word. It transcribes your calls, marking what you said and what the others said. And an AI assistant can read it all, if you connect one."
+    }
+   },
+   {
+    "@type": "Question",
+    "name": "Is it open source?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "No. It is source available under FSL-1.1-MIT. You can read, change and run the code. You cannot offer it in a commercial product that competes with it. Each version becomes MIT two years after release, and versions up to 0.11.0 already are. The code and license are on."
     }
    },
    {
@@ -141,26 +149,10 @@
    },
    {
     "@type": "Question",
-    "name": "Which languages are supported?",
-    "acceptedAnswer": {
-     "@type": "Answer",
-     "text": "English works best. Whisper also does well in Spanish, French, German, Italian, Portuguese, Dutch, Japanese, Chinese and Korean. Other languages work too, with more mistakes. For those, pick Large v3 in the Model settings."
-    }
-   },
-   {
-    "@type": "Question",
-    "name": "Why Whisper and not Parakeet?",
-    "acceptedAnswer": {
-     "@type": "Answer",
-     "text": "Retries use the confidence Whisper gives each part it writes, and key terms go into Whisper's prompt. Parakeet is faster, and I have not measured it against this pipeline."
-    }
-   },
-   {
-    "@type": "Question",
     "name": "How do I send feedback?",
     "acceptedAnswer": {
      "@type": "Answer",
-     "text": "In Dictate, choose Send Feedback… in the menu bar menu or in Settings, About. A short form opens in your browser with your activation ID and versions filled in, so I can find what went wrong. On older versions, or without Dictate, use the feedback page at dictate.firstversion.in/feedback. For a bug, say what you did and what happened instead. I read every message, and I reply when you leave an email."
+     "text": "In Dictate, choose Send Feedback… in the menu bar menu or in Settings, About. A short form opens in your browser with your activation ID and versions filled in, so I can find what went wrong. On older versions, or without Dictate, use the. For a bug, say what you did and what happened instead. I read every message, and I reply when you leave an email."
     }
    }
   ]
@@ -318,7 +310,7 @@
       <div class="tier tier-dictate">
         <h3 class="name"><img src="icon.svg" alt="" width="40" height="40">Dictate</h3>
         <p class="fig">Free</p>
-        <p class="terms">Free forever for the first 50 early access users. The next 50 pay <span data-price>$25</span>, then a lifetime license is <span data-price>$49</span>. All processing happens on your Mac.</p>
+        <p class="terms">Free forever for the first 50 early access users. After that, a lifetime license is <span data-price>$49</span>. All processing happens on your Mac.</p>
         <div class="get"><div class="actions"><a class="button primary" data-get href="https://dictate.firstversion.in/get">Download for Mac</a></div></div>
       </div>
       <div class="tier">
@@ -351,11 +343,15 @@
         <summary><h3>Should I ask before I transcribe a call?</h3></summary>
         <p>Yes. Ask before you press Record, and don't record if they say no. People do mind, and with no bot in the call they only know if you tell them. You could say: "Can I transcribe this for my notes? It stays on my Mac and the audio is deleted within a week." <a href="record-sales-calls-with-consent/">How to record calls with consent.</a></p>
         <p>For me it's personal. I'm not a native English speaker, and recording lets me stay present in the call instead of scrambling for notes. I take my notes afterwards.</p>
-        <p>By default the audio is deleted after 7 days and the transcript after 30. In the Data retention settings you can delete the audio as soon as it's transcribed, or after 1 day.</p>
+        <p>By default the audio is deleted after 7 days and the transcript after 30. In Settings, Setup, you can delete the audio as soon as it's transcribed, or after 1 day.</p>
         <figure class="bots">
           <div class="botwin mac" aria-hidden="true"><div class="bt-title">Meeting, 8 participants</div><div class="grid8"><span class="t"><span class="av">A</span><span class="nm">Alex</span></span><span class="t"><span class="av">Y</span><span class="nm">You</span></span><span class="t b"><span class="bot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="3" y="5" width="10" height="8" rx="2.5"/><path d="M8 5V2.5" stroke-linecap="round"/><circle cx="8" cy="2" r=".8" fill="currentColor" stroke="none"/><circle cx="6" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="nm">Notetaker</span></span><span class="t b"><span class="bot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="3" y="5" width="10" height="8" rx="2.5"/><path d="M8 5V2.5" stroke-linecap="round"/><circle cx="8" cy="2" r=".8" fill="currentColor" stroke="none"/><circle cx="6" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="nm">Notetaker</span></span><span class="t b"><span class="bot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="3" y="5" width="10" height="8" rx="2.5"/><path d="M8 5V2.5" stroke-linecap="round"/><circle cx="8" cy="2" r=".8" fill="currentColor" stroke="none"/><circle cx="6" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="nm">Notetaker</span></span><span class="t b"><span class="bot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="3" y="5" width="10" height="8" rx="2.5"/><path d="M8 5V2.5" stroke-linecap="round"/><circle cx="8" cy="2" r=".8" fill="currentColor" stroke="none"/><circle cx="6" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="nm">Notetaker</span></span><span class="t b"><span class="bot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="3" y="5" width="10" height="8" rx="2.5"/><path d="M8 5V2.5" stroke-linecap="round"/><circle cx="8" cy="2" r=".8" fill="currentColor" stroke="none"/><circle cx="6" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="nm">Notetaker</span></span><span class="t b"><span class="bot"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="3" y="5" width="10" height="8" rx="2.5"/><path d="M8 5V2.5" stroke-linecap="round"/><circle cx="8" cy="2" r=".8" fill="currentColor" stroke="none"/><circle cx="6" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span><span class="nm">Notetaker</span></span></div></div>
           <figcaption>Two people, eight participants.</figcaption>
         </figure>
+      </details>
+      <details>
+        <summary><h3>What does it cost?</h3></summary>
+        <p>Free forever for the first 50 people. After that, it's <span data-price>$49</span>. You pay once, with no subscription, unlike apps that run in the cloud.</p>
       </details>
       <details>
         <summary><h3>Does any of my data leave my Mac?</h3></summary>
@@ -366,53 +362,45 @@
         </ul>
         <p>Your recordings and their text stay on your Mac. Recordings are deleted after 7 days and text after 30, and you can change that in Settings, Setup. If you decide to connect an AI assistant such as Claude, it can read your text. What it does with it depends on that assistant, so pick one you trust. <a href="https://github.com/spashii/dictate/blob/main/docs/user/data.md">Where everything is kept</a></p>
       </details>
-      <details id="feedback">
-        <summary><h3>How do I send feedback?</h3></summary>
-        <p>In Dictate, choose Send Feedback… in the menu bar menu or in Settings, About. A short form opens in your browser with your activation ID and versions filled in, so I can find what went wrong. On older versions, or without Dictate, use the <a href="https://dictate.firstversion.in/feedback">feedback page</a>. For a bug, say what you did and what happened instead. I read every message, and I reply when you leave an email.</p>
+      <details>
+        <summary><h3>Does it work with Slack, Teams, Google Meet and WhatsApp?</h3></summary>
+        <p>Yes, and with Zoom, FaceTime, Discord, Signal and Telegram too. Calls in a browser tab work as well. <a href="transcribe-calls-on-mac/">How to transcribe calls on a Mac.</a></p>
       </details>
       <details>
-        <summary><h3>What will it cost?</h3></summary>
-        <p>Free forever for the first 50 early access users. The next 50 pay <span data-price>$25</span>, then a lifetime license is <span data-price>$49</span>.</p>
+        <summary><h3>Which languages does it understand?</h3></summary>
+        <p>English works best. Spanish, French, German, Italian, Portuguese, Dutch, Japanese, Chinese and Korean work well too, and Dictate picks up the language on its own. Other languages work with more mistakes. For those, choose Large v3 in Settings, Model.</p>
       </details>
       <details>
-        <summary><h3>How is it different from Handy and OpenSuperWhisper?</h3></summary>
-        <p>At the core they're close, and I learned a lot from both. All three run on your Mac. <a href="https://handy.computer">Handy</a> also runs Parakeet and works on Windows and Linux. Dictate adds three things: retries on unsure words, online calls with both sides kept apart and a local MCP server for your agents.</p>
+        <summary><h3>Will it run on my Mac?</h3></summary>
+        <p>Yes, if your Mac has an M1 chip or newer and macOS 15 or later.</p>
+      </details>
+      <details>
+        <summary><h3>What does it ask permission for?</h3></summary>
+        <p>Your microphone, to hear you. Accessibility, to paste the text into the app you're in. Call audio, to hear the other people on a call. You can skip call audio and still dictate.</p>
+      </details>
+      <details>
+        <summary><h3>Why do I need to activate it?</h3></summary>
+        <p>I want to know who uses Dictate. You enter your email once and get a code. I might write to ask how you use it and what's missing. Tell me to stop and I will. The app never signs in and never reports what you do.</p>
+      </details>
+      <details>
+        <summary><h3>Can an AI assistant read my transcripts?</h3></summary>
+        <p>Only if you decide to connect one, such as Claude. It can then read your dictations and calls. It can't record anything unless you allow it in Settings, Agents. Pick one you trust, because what it does with your text is up to it.</p>
+      </details>
+      <details>
+        <summary><h3>How is it different from other dictation apps?</h3></summary>
+        <p>Handy and OpenSuperWhisper are my favorites, and I learned a lot from both. Dictate adds three things. It listens again when it's unsure of a word. It transcribes your calls, marking what you said and what the others said. And an AI assistant can read it all, if you connect one.</p>
       </details>
       <details>
         <summary><h3>Is it open source?</h3></summary>
         <p>No. It is source available under FSL-1.1-MIT. You can read, change and run the code. You cannot offer it in a commercial product that competes with it. Each version becomes MIT two years after release, and versions up to 0.11.0 already are. The code and license are on <a href="https://github.com/spashii/dictate">GitHub</a>.</p>
       </details>
       <details>
-        <summary><h3>Why do I need to activate it?</h3></summary>
-        <p>Dictate is free, and I want to know who uses it. Your email gets the code, and I might write to hear how you use Dictate and what's missing. Tell me to stop and I will. The app does not sign in and does not report what you do.</p>
-      </details>
-      <details>
-        <summary><h3>What does it ask permission for?</h3></summary>
-        <p>Microphone, to hear you. Accessibility, to paste into the app you are in. Without it your text waits on the clipboard. Call audio, to hear the other side of an online call. It records only the call app's sound. You can skip it and still dictate.</p>
-      </details>
-      <details>
-        <summary><h3>What can my agent see?</h3></summary>
-        <p>Your dictations and call transcripts, through the tools you leave on. The server listens only on your Mac and needs the token from the Agents settings. Tools that record or change anything start off. Your agent reads what the other side of a call says, and that could steer it.</p>
-      </details>
-      <details>
-        <summary><h3>I use OpenSuperWhisper, which also uses Option+`. Will they clash?</h3></summary>
-        <p>Yes. Change the shortcut in one of them. In Dictate it is in the Shortcuts settings. If OpenSuperWhisper already has the speech model, Dictate reuses it instead of downloading 1.6 GB again.</p>
-      </details>
-      <details>
-        <summary><h3>Which call apps work?</h3></summary>
-        <p>Zoom, Teams, Slack, Discord, FaceTime, WhatsApp, Signal, Telegram, Webex, Skype and Element. Calls in a browser tab such as Meet work too. <a href="transcribe-calls-on-mac/">How to transcribe calls on a Mac.</a></p>
-      </details>
-      <details>
         <summary><h3>Can I use it on my phone?</h3></summary>
         <p>Not yet. I record the call as a voice memo on my Apple Watch. Then I import the file into Dictate on my Mac.</p>
       </details>
-      <details>
-        <summary><h3>Which languages are supported?</h3></summary>
-        <p>English works best. Whisper also does well in Spanish, French, German, Italian, Portuguese, Dutch, Japanese, Chinese and Korean. Other languages work too, with more mistakes. For those, pick Large v3 in the Model settings.</p>
-      </details>
-      <details>
-        <summary><h3>Why Whisper and not Parakeet?</h3></summary>
-        <p>Retries use the confidence Whisper gives each part it writes, and key terms go into Whisper's prompt. Parakeet is faster, and I have not measured it against this pipeline.</p>
+      <details id="feedback">
+        <summary><h3>How do I send feedback?</h3></summary>
+        <p>In Dictate, choose Send Feedback… in the menu bar menu or in Settings, About. A short form opens in your browser with your activation ID and versions filled in, so I can find what went wrong. On older versions, or without Dictate, use the <a href="https://dictate.firstversion.in/feedback">feedback page</a>. For a bug, say what you did and what happened instead. I read every message, and I reply when you leave an email.</p>
       </details>
     </div>
   </section>

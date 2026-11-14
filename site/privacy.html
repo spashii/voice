@@ -42,24 +42,26 @@
 <p>I do not store your IP address. To stop spam I keep a salted one-way hash of it for about two hours. It cannot be turned back into your address.</p>
 <h2>Your code</h2>
 <p>The code is sent from dictate@firstversion.in through Cloudflare Email. I keep only a one-way hash of it, for 15 minutes. Replies reach me.</p>
+<h2>When you send feedback</h2>
+<p>I store your message, the email you give for a reply, and the Dictate and macOS versions. From the app it also carries your activation ID, so I can see which activation wrote. A copy reaches me through Cloudflare Email.</p>
 <h2>No cookies</h2>
 <p>This site remembers the campaign that brought you (for example a utm tag or the site you came from) in your browser's local storage. The download link and the activation page pass it on, so activation can count it. It holds nothing that identifies you.</p>
 <h2>Who handles it</h2>
 <p>The controller of your data is Sameer, the developer of Dictate. The activation service, its database and the bot check run on Cloudflare. The code email goes through Cloudflare Email. This site is hosted on GitHub Pages. I do not sell or share your address.</p>
 <p>This site counts visits with Cloudflare Web Analytics, which sets no cookies and does not track you across sites.</p>
 <h2>Deleting your data</h2>
-<p>Reply to any email from me and ask to be removed. I delete your email and signup record. You can also ask for a copy of what I hold, or for a correction.</p>
+<p>Reply to any email from me and ask to be removed. I delete your email, signup record and feedback. You can also ask for a copy of what I hold, or for a correction.</p>
 <h2>How long I keep it</h2>
 <p>Until you ask me to delete it.</p>
 <h2>The app itself</h2>
 <p>Your audio and transcripts stay on your Mac. By default the audio is deleted after 7 days and the transcript after 30. The app goes online to fetch its speech models and to check for updates, and it reaches three hosts:</p>
 <ul><li>huggingface.co for the speech and voice activity models (once).</li><li>apps.firstversion.in, for update checks.</li><li>dictate.firstversion.in, for update downloads.</li></ul>
 <p>Dictate uses Sparkle for updates. A check asks apps.firstversion.in for the list of updates and tells it which version of Dictate you have. The server counts checks by app, version and country and never stores your IP address.</p>
-<p>Dictate keeps one item in your login Keychain: a token signed by the Dictate site. It holds three things: your signup id, a random number made on this Mac and the date. The signup id is a random code that points to your email in my list. Dictate checks the signature on your Mac and does not send the token anywhere.</p>
+<p>Dictate keeps one item in your login Keychain: a token signed by the Dictate site. It holds three things: your signup id, a random number made on this Mac and the date. The signup id is a random code that points to your email in my list. Dictate checks the signature on your Mac and does not send the token anywhere. About shows your activation ID, a short code made from the signup id that cannot be turned back into it. Send Feedback opens the feedback page in your browser with that ID and the two versions.</p>
 <p>If you connect an agent it can read your transcripts. Where it sends them depends on that agent.</p>
 <p><a href="./">Back to Dictate</a></p>
 </main>
-<footer class="site"><p>Compare Dictate with <a href="wispr-flow-alternative/">Wispr Flow</a>, <a href="granola-alternative/">Granola</a>, <a href="macwhisper-alternative/">MacWhisper</a> and <a href="superwhisper-alternative/">Superwhisper</a>, or read <a href="transcribe-calls-on-mac/">how to transcribe calls on a Mac</a>.</p><p>Made by <a href="https://github.com/spashii">Sameer</a>. Source available <span class="nowrap">(FSL-1.1-MIT)</span>. <a href="https://github.com/spashii/dictate">GitHub</a>. <a href="privacy.html">Privacy</a>.</p></footer>
+<footer class="site"><p>Compare Dictate with <a href="wispr-flow-alternative/">Wispr Flow</a>, <a href="granola-alternative/">Granola</a>, <a href="macwhisper-alternative/">MacWhisper</a> and <a href="superwhisper-alternative/">Superwhisper</a>, or read <a href="transcribe-calls-on-mac/">how to transcribe calls on a Mac</a>.</p><p>Made by <a href="https://github.com/spashii">Sameer</a>. Source available <span class="nowrap">(FSL-1.1-MIT)</span>. <a href="https://github.com/spashii/dictate">GitHub</a>. <a href="privacy.html">Privacy</a>. <a href="https://dictate.firstversion.in/feedback">Support</a>.</p></footer>
 <script>
 if (location.hostname === "spashii.github.io") {
   const s = document.createElement("script");

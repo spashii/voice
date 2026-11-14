@@ -446,6 +446,7 @@ private struct ConnectSheet: View {
 struct AboutPane: View {
     @Environment(AppModel.self) private var model
     @State private var showingNotices = false
+    @State private var copiedID = false
     @State private var showingAllReleases: Bool
     private static let changelog: [Changelog.Entry] = {
         guard let url = Bundle.main.url(forResource: "CHANGELOG", withExtension: "md"),
@@ -472,6 +473,21 @@ struct AboutPane: View {
                     }
                 }
                 .padding(.vertical, 4)
+            }
+            Section {
+                if let id = model.activation.activationID {
+                    LabeledContent("Activation ID") {
+                        HStack {
+                            Text(verbatim: id).monospaced().textSelection(.enabled)
+                            Button(copiedID ? "Copied" : "Copy") { copy(id) }
+                        }
+                    }
+                }
+                LabeledContent("Feedback") {
+                    Button("Send Feedback\u{2026}") {
+                        NSWorkspace.shared.open(SupportItem.feedbackURL(activationID: model.activation.activationID))
+                    }
+                }
             }
             if let update = model.updates.available {
                 Section {
@@ -533,6 +549,16 @@ struct AboutPane: View {
         }
         .formStyle(.grouped)
         .sheet(isPresented: $showingNotices) { NoticesSheet() }
+    }
+
+    private func copy(_ id: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(id, forType: .string)
+        copiedID = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            copiedID = false
+        }
     }
 
     private static func dateText(_ components: DateComponents?) -> String? {

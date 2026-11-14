@@ -3,7 +3,7 @@ import XCTest
 final class SupportItemsTests: XCTestCase {
     func testMenuOrder() {
         XCTAssertEqual(SupportItem.allCases.map(\.title),
-                       ["Check for Updates…", "Report an Issue…"])
+                       ["Check for Updates…", "Report an Issue…", "Send Feedback…"])
     }
 
     func testRepository() {
@@ -32,5 +32,17 @@ final class SupportItemsTests: XCTestCase {
 extension SupportItemsTests {
     func testVersionLine() {
         XCTAssertEqual(SupportItem.versionTitle(appVersion: "0.15.0"), "Version 0.15.0")
+    }
+}
+
+extension SupportItemsTests {
+    func testFeedbackURLCarriesTheIDAndVersions() {
+        let url = SupportItem.feedbackURL(activationID: "Z05Z-JFFK", appVersion: "0.16.0", macOS: "26.6.2")
+        XCTAssertEqual(url.absoluteString, "https://dictate.firstversion.in/feedback?id=Z05Z-JFFK&v=0.16.0&os=26.6.2")
+    }
+
+    func testFeedbackURLWithoutActivation() {
+        let url = SupportItem.feedbackURL(activationID: nil, appVersion: "0.16.0", macOS: "15.5.0")
+        XCTAssertEqual(url.absoluteString, "https://dictate.firstversion.in/feedback?v=0.16.0&os=15.5.0")
     }
 }

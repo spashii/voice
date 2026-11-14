@@ -210,6 +210,7 @@ struct MenuContent: View {
         switch item {
         case .checkForUpdates: model.updates.check()
         case .reportIssue: NSWorkspace.shared.open(SupportItem.issueURL)
+        case .sendFeedback: NSWorkspace.shared.open(SupportItem.feedbackURL(activationID: model.activation.activationID))
         }
     }
 

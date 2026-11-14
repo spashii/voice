@@ -60,6 +60,14 @@ func refusal(_ result: Result<Void, Activation.Refusal>) -> Activation.Refusal? 
         #expect(store.record.token != nil)
     }
 
+    @Test func theActivationIDAppearsOnlyOnceActivated() throws {
+        let activation = make()
+        #expect(activation.activationID == nil)
+        _ = activation.begin()
+        try activation.accept(text: TokenSupport.token(sid: "s1a2b3c4d5e6", nonce: "n1")).get()
+        #expect(activation.activationID == "Z05Z-JFFK")
+    }
+
     @Test func aLinkActivatesToo() throws {
         let activation = make()
         _ = activation.begin()

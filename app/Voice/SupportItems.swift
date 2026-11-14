@@ -5,11 +5,13 @@ import Foundation
 enum SupportItem: CaseIterable {
     case checkForUpdates
     case reportIssue
+    case sendFeedback
 
     var title: String {
         switch self {
         case .checkForUpdates: "Check for Updates…"
         case .reportIssue: "Report an Issue…"
+        case .sendFeedback: "Send Feedback…"
         }
     }
 
@@ -40,6 +42,25 @@ enum SupportItem: CaseIterable {
     static var issueURL: URL {
         issueURL(appVersion: appVersion,
                  macOS: ProcessInfo.processInfo.operatingSystemVersionString)
+    }
+
+    static let feedbackPage = URL(string: "https://dictate.firstversion.in/feedback")!
+
+    /// The feedback page with this activation's ID and the two versions, which the page shows
+    /// above its Send button. Without an ID the page asks for an email instead. The site reads
+    /// these names (id, v, os), so they stay as they are once released.
+    static func feedbackURL(activationID: String?, appVersion: String, macOS: String) -> URL {
+        var components = URLComponents(url: feedbackPage, resolvingAgainstBaseURL: false)!
+        components.queryItems = (activationID.map { [URLQueryItem(name: "id", value: $0)] } ?? [])
+            + [URLQueryItem(name: "v", value: appVersion), URLQueryItem(name: "os", value: macOS)]
+        return components.url!
+    }
+
+    /// The feedback link for this copy of Dictate on this Mac.
+    static func feedbackURL(activationID: String?) -> URL {
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        return feedbackURL(activationID: activationID, appVersion: appVersion,
+                           macOS: "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)")
     }
 
     private static let queryValue = CharacterSet.urlQueryAllowed.subtracting(CharacterSet(charactersIn: "&=+#"))

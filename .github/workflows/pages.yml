@@ -1,11 +1,12 @@
 name: Site
 
-# Publishes site/ to GitHub Pages whenever it changes on main. The site's home is dictate.tech
-# (cloudflare-pages.yml); this copy keeps the old spashii.github.io/dictate/ links working.
+# Keeps the old spashii.github.io/dictate/ links working for good. The site lives on dictate.tech
+# (cloudflare-pages.yml); GitHub Pages serves a stub at every old path that forwards to the same path there,
+# query string and #fragment included (shipped apps open activate/#n=<nonce> here).
 on:
   push:
     branches: [main]
-    paths: ["site/**", "tools/site-build.sh"]
+    paths: ["site/**", "tools/github-stubs.sh"]
   workflow_dispatch:
 
 permissions:
@@ -25,13 +26,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # Same build as dictate.tech, so this copy matches it; _headers is Cloudflare's alone.
-      - name: Build
-        run: |
-          tools/site-build.sh _site
-          rm _site/_headers
+      - name: Build stubs
+        run: tools/github-stubs.sh _site
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

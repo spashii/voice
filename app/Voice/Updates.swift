@@ -95,7 +95,7 @@ final class Updates {
     }
 #endif
 
-    private static var currentVersion: String {
+    static var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 
@@ -134,6 +134,11 @@ final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
     func updater(_ updater: SPUUpdater, userDidMake choice: SPUUserUpdateChoice,
                  forUpdate updateItem: SUAppcastItem, state: SPUUserUpdateState) {
         if choice == .skip { notFound?() }
+        // Remembered across the relaunch: Sparkle reports no choice for an update that installs
+        // on its own, so a version recorded here is how the next launch knows the person asked.
+        if choice == .install {
+            UserDefaults.standard.set(updateItem.displayVersionString, forKey: FirstLaunch.chosenUpdateKey)
+        }
     }
 
     /// True tells Sparkle Dictate will install the update itself, by calling the block.

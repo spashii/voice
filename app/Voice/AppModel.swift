@@ -716,6 +716,31 @@ final class AppModel {
 
     func openHistory() { openMainWindow(.history) }
 
+    /// Dictate was opened again while running, from Spotlight, Finder or the Dock.
+    func reopen() {
+        openMainWindow(FirstLaunch.reopenPane(activated: activation.isActivated, setupComplete: setupComplete))
+    }
+
+    /// Told when activation changes, so the Dock icon follows it.
+    @ObservationIgnored var onActivationChange: (() -> Void)?
+
+    /// After an update: About when the person chose it, a pill when it installed on its own.
+    func announceUpdateIfNeeded() {
+        let defaults = UserDefaults.standard
+        let current = Updates.currentVersion
+        let announcement = FirstLaunch.announcement(last: defaults.string(forKey: FirstLaunch.lastLaunchedKey),
+                                                    current: current,
+                                                    chosenVersion: defaults.string(forKey: FirstLaunch.chosenUpdateKey),
+                                                    activated: activation.isActivated)
+        defaults.set(current, forKey: FirstLaunch.lastLaunchedKey)
+        defaults.removeObject(forKey: FirstLaunch.chosenUpdateKey)
+        switch announcement {
+        case .none: break
+        case .about: openMainWindow(.about)
+        case .pill(let version): notice("Updated to \(version)")
+        }
+    }
+
     /// Cmd+, and the menu's Settings: the first settings pane.
     func openSettings() { openMainWindow(.setup) }
 
@@ -777,6 +802,7 @@ final class AppModel {
 
     private func activationChanged() {
         applyLock()
+        onActivationChange?()
     }
 
     /// A notice from outside dictation. Mid-dictation the indicator stays on the dictation

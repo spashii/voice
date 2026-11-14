@@ -137,6 +137,7 @@ targets:
       - path: VoiceTests
       - path: Voice/SupportItems.swift
       - path: Voice/WindowPolicy.swift
+      - path: Voice/FirstLaunch.swift
       - path: Voice/PillHover.swift
       - path: Voice/NoticesDocument.swift
       - path: Voice/BlendMic.swift

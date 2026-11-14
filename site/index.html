@@ -154,6 +154,14 @@
      "@type": "Answer",
      "text": "Retries use the confidence Whisper gives each part it writes, and key terms go into Whisper's prompt. Parakeet is faster, and I have not measured it against this pipeline."
     }
+   },
+   {
+    "@type": "Question",
+    "name": "How do I send feedback?",
+    "acceptedAnswer": {
+     "@type": "Answer",
+     "text": "In Dictate, choose Send Feedback… in the menu bar menu or in Settings, About. A short form opens in your browser with your activation ID and versions filled in, so I can find what went wrong. On older versions, or without Dictate, use the feedback page at dictate.firstversion.in/feedback. For a bug, say what you did and what happened instead. I read every message, and I reply when you leave an email."
+    }
    }
   ]
  }
@@ -352,6 +360,10 @@
       <details open>
         <summary><h3>Does anything leave my Mac?</h3></summary>
         <p>Your audio and transcripts stay on your Mac in one folder. By default the audio is deleted after 7 days and the transcript after 30. You can delete the audio once it's transcribed or after 1 day, or keep it forever in developer mode. History can be kept for 7 days, 30 days or forever. Dictate goes online once for its speech models (1.6 GB) and later for updates. The update server counts checks by app, version and country. It never stores your IP address. If you connect an agent it can read your transcripts. Where it sends them depends on that agent. <a href="https://github.com/spashii/dictate/blob/main/docs/user/data.md">Where everything is kept</a></p>
+      </details>
+      <details id="feedback">
+        <summary><h3>How do I send feedback?</h3></summary>
+        <p>In Dictate, choose Send Feedback… in the menu bar menu or in Settings, About. A short form opens in your browser with your activation ID and versions filled in, so I can find what went wrong. On older versions, or without Dictate, use the <a href="https://dictate.firstversion.in/feedback">feedback page</a>. For a bug, say what you did and what happened instead. I read every message, and I reply when you leave an email.</p>
       </details>
       <details>
         <summary><h3>What will it cost?</h3></summary>
@@ -677,6 +689,11 @@ document.querySelectorAll(".note").forEach(note => {
   window.__seek = t0 => { paused = true; t = t0; scene.classList.remove("out"); snap(t0); };
   window.__moments = { start: 0, call: STILL[0], ended: T.end + 300, dictating: T.chunks[1] + 300, answer: T.mail[1] + 400 };
 })();
+</script>
+<script>
+// A link to a question (such as #feedback) opens that answer.
+function openHashed(){var d=location.hash&&document.getElementById(location.hash.slice(1));if(d&&d.tagName==="DETAILS")d.open=true;}
+openHashed();addEventListener("hashchange",openHashed);
 </script>
 </body>
 </html>

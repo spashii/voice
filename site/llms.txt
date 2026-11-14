@@ -1,6 +1,6 @@
 # Dictate
 
-> Dictate is fast local dictation and call transcription for Mac. It types what you say into any app and transcribes your online calls with your side and theirs kept apart. It runs on your Mac, and no bot joins the call. Apple silicon, macOS 15 or later.
+> Dictate is fast local dictation and call transcription for Mac. It types what you say into any app and transcribes your online calls, marking what you said and what the others said. It runs on your Mac, and no bot joins the call. Apple silicon, macOS 15 or later.
 
 - Price: free forever for the first 50 early access users. The next 50 pay $25, then a lifetime license is $49. Prices are in euros in Europe.
 - Activation: you activate each Mac once in your browser with your email and a code. The app does not sign in and does not report what you do.

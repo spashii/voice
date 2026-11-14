@@ -18,14 +18,14 @@
 
 ## Links
 
-- [Website](https://spashii.github.io/dictate/)
-- [Download for Mac](https://dictate.firstversion.in/get)
+- [Website](https://dictate.tech/)
+- [Download for Mac](https://dictate.tech/get)
 - [Source on GitHub](https://github.com/spashii/dictate)
 - [Where everything is kept](https://github.com/spashii/dictate/blob/main/docs/user/data.md)
-- [Privacy](https://spashii.github.io/dictate/privacy.html)
-- [Local Wispr Flow alternative for Mac](https://spashii.github.io/dictate/wispr-flow-alternative/)
-- [Granola alternative without the cloud](https://spashii.github.io/dictate/granola-alternative/)
-- [How to transcribe online calls on a Mac, locally](https://spashii.github.io/dictate/transcribe-calls-on-mac/)
-- [MacWhisper alternative for dictation and calls](https://spashii.github.io/dictate/macwhisper-alternative/)
-- [Superwhisper alternative for dictation and calls](https://spashii.github.io/dictate/superwhisper-alternative/)
-- [How to record sales calls with consent](https://spashii.github.io/dictate/record-sales-calls-with-consent/)
+- [Privacy](https://dictate.tech/privacy)
+- [Local Wispr Flow alternative for Mac](https://dictate.tech/wispr-flow-alternative/)
+- [Granola alternative without the cloud](https://dictate.tech/granola-alternative/)
+- [How to transcribe online calls on a Mac, locally](https://dictate.tech/transcribe-calls-on-mac/)
+- [MacWhisper alternative for dictation and calls](https://dictate.tech/macwhisper-alternative/)
+- [Superwhisper alternative for dictation and calls](https://dictate.tech/superwhisper-alternative/)
+- [How to record sales calls with consent](https://dictate.tech/record-sales-calls-with-consent/)

@@ -1,10 +1,11 @@
 /* Activation page script. It reads the nonce from the URL fragment (never sent to any server), talks to
-   the worker's activation API on dictate.firstversion.in, and hands the token back to the app through
-   its URL scheme. Turnstile keys and the API host switch to test values only on localhost. */
+   the worker's activation API, and hands the token back to the app through its URL scheme. On dictate.tech
+   (and its staging host) the API is the page's own origin; a copy served anywhere else calls dictate.tech.
+   Turnstile keys and the API host switch to test values only on localhost. */
 (() => {
   const $ = (id) => document.getElementById(id);
   const local = location.hostname === "localhost" || location.hostname === "127.0.0.1";
-  const API = local ? "http://localhost:8799" : "https://dictate.firstversion.in";
+  const API = local ? "http://localhost:8799" : /(^|\.)dictate\.tech$/.test(location.hostname) ? location.origin : "https://dictate.tech";
   const sitekey = local ? "1x00000000000000000000AA" : "0x4AAAAAAF-MEHP47FLn7LEY";
   const attribution = window.dictateAttribution || {};
   let reply = "";
@@ -216,5 +217,14 @@
   } else {
     show("start");
     initTurnstile();
+  }
+
+  // Web Analytics counts dictate.tech only; the CSP allows this script and the beacon's endpoint.
+  if (location.hostname === "dictate.tech") {
+    const s = document.createElement("script");
+    s.defer = true;
+    s.src = "https://static.cloudflareinsights.com/beacon.min.js";
+    s.dataset.cfBeacon = '{"token": "df4da6da1c404d95824b0a88d2638fda"}';
+    document.head.append(s);
   }
 })();

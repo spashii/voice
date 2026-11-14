@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
- <url><loc>https://spashii.github.io/dictate/</loc></url>
- <url><loc>https://spashii.github.io/dictate/privacy.html</loc></url>
- <url><loc>https://spashii.github.io/dictate/wispr-flow-alternative/</loc></url>
- <url><loc>https://spashii.github.io/dictate/granola-alternative/</loc></url>
- <url><loc>https://spashii.github.io/dictate/transcribe-calls-on-mac/</loc></url>
- <url><loc>https://spashii.github.io/dictate/macwhisper-alternative/</loc></url>
- <url><loc>https://spashii.github.io/dictate/superwhisper-alternative/</loc></url>
- <url><loc>https://spashii.github.io/dictate/record-sales-calls-with-consent/</loc></url>
+ <url><loc>https://dictate.tech/</loc></url>
+ <url><loc>https://dictate.tech/privacy</loc></url>
+ <url><loc>https://dictate.tech/wispr-flow-alternative/</loc></url>
+ <url><loc>https://dictate.tech/granola-alternative/</loc></url>
+ <url><loc>https://dictate.tech/transcribe-calls-on-mac/</loc></url>
+ <url><loc>https://dictate.tech/macwhisper-alternative/</loc></url>
+ <url><loc>https://dictate.tech/superwhisper-alternative/</loc></url>
+ <url><loc>https://dictate.tech/record-sales-calls-with-consent/</loc></url>
 </urlset>

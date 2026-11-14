@@ -403,13 +403,27 @@ private struct ConnectSheet: View {
     let agents: AgentAccess
     @Environment(\.dismiss) private var dismiss
     @State private var setup: MCPSetup?
+    @State private var copiedMessage = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Connect an agent app").font(.title3.weight(.semibold))
             if let setup {
-                snippet("JSON config", setup.json)
-                snippet("Claude Code", setup.command)
+                step("1. Choose tools", "Close this window, then switch on the tools your agent may use under Tools.")
+                VStack(alignment: .leading, spacing: 10) {
+                    step("2. Copy", "Paste the setup message into Claude or another agent app. It tells the agent how to connect.")
+                    HStack {
+                        Button(copiedMessage ? "Copied" : "Copy setup message") {
+                            agents.copy(setup.message)
+                            copiedMessage = true
+                        }
+                        Text("The token works like a password for your transcripts.")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                    snippet("JSON config", setup.json)
+                    snippet("Claude Code", setup.command)
+                }
+                step("3. Start a new session", "Open a new session in your agent app so the Dictate tools appear.")
             } else {
                 Text("The token could not be read.").foregroundStyle(.secondary)
             }
@@ -422,6 +436,13 @@ private struct ConnectSheet: View {
         .frame(width: 560)
         .onAppear { setup = agents.setupWithToken() }
         .onDisappear { setup = nil }
+    }
+
+    private func step(_ title: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.headline)
+            Text(detail).font(.callout).foregroundStyle(.secondary)
+        }
     }
 
     private func snippet(_ title: String, _ text: String) -> some View {

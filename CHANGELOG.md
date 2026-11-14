@@ -8,6 +8,11 @@ the entry for VERSION into the update feed, which Sparkle shows before installin
 stops when VERSION has no entry here.
 -->
 
+## 0.15.4
+
+- **Agents can no longer start a recording.** Only you can. Agent access is now off for new installs; if you already used Dictate, it stays on. In Settings, Agents, Connect an agent app has Copy setup message, a message you paste into Claude or another agent to connect it. The Claude Code command now installs for all your projects.
+- **Tell the call you're transcribing.** Record this call? has Copy notice, a line to paste into the call's chat.
+
 ## 0.15.3 (2026-11-14)
 
 - **Dictate shows itself on first launch.** Welcome comes to the front, and opening Dictate again from Spotlight or Finder brings the right window up. Until you activate, Dictate keeps its Dock icon.

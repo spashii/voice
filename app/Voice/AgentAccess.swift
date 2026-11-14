@@ -15,15 +15,15 @@ final class AgentAccess {
         case failed(String)
     }
 
-    /// On by default, except in a development build, which would fight the installed app for
-    /// the port: an agent also needs the token, and the server listens on this Mac only
-    /// unless the address says otherwise.
+    /// Off for a new install; the app settles it at launch (AgentSettings.settleAccess), so an
+    /// install that had it on stays on. A development build never defaults on: it would fight
+    /// the installed app for the port.
     var enabled: Bool {
         didSet {
             #if DEBUG
             if snapshotHeld { return }
             #endif
-            UserDefaults.standard.set(enabled, forKey: "agentAccess")
+            UserDefaults.standard.set(enabled, forKey: AgentSettings.accessKey)
             apply()
         }
     }
@@ -35,7 +35,7 @@ final class AgentAccess {
     /// The current token, read when Settings needs it.
     private(set) var token: String?
 
-    /// What start_recording and stop_recording go through; set before launch.
+    /// What stop_recording and import_audio_file go through; set before launch.
     @ObservationIgnored var recording: (any RecordingControl)?
     /// Where agents' key-term changes go: Preferences, so Settings shows them as they land.
     @ObservationIgnored var keyTerms: (any KeyTermsSettings)?
@@ -45,7 +45,7 @@ final class AgentAccess {
 
     init() {
         let defaults = UserDefaults.standard
-        enabled = defaults.object(forKey: "agentAccess") as? Bool ?? !BuildFlavor.isDev
+        enabled = defaults.object(forKey: AgentSettings.accessKey) as? Bool ?? false
         host = defaults.string(forKey: "agentHost").flatMap(MCPEndpoint.address(host:)) ?? MCPEndpoint.defaultHost
         port = (defaults.object(forKey: "agentPort") as? Int).flatMap { UInt16(exactly: $0) } ?? MCPServer.defaultPort
         // An explicit choice, even all on, is kept; the new-install defaults apply only to a Mac

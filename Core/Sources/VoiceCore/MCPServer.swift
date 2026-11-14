@@ -1,10 +1,10 @@
 import Foundation
 import Network
 
-/// Lets an agent start and stop recording a call. The app provides it once it records calls;
-/// dictate-cli can't record, so its server has none.
+/// Lets an agent stop the call recording in progress and import files. Agents can't start a
+/// recording: only a person does. The app provides it; dictate-cli can't record, so its server
+/// has none.
 public protocol RecordingControl: Sendable {
-    func startRecording(title: String?) async throws -> Call
     func stopRecording() async throws -> Call
     /// Imports an audio or video file the router has already validated: the call comes back
     /// at once and is transcribed in the background.
@@ -56,7 +56,7 @@ public final class MCPServer: @unchecked Sendable {
     private var listener: NWListener?
     private var connections: [ObjectIdentifier: HTTPConnection] = [:]
 
-    /// `recordingUnavailable` is what start_recording and stop_recording answer when there
+    /// `recordingUnavailable` is what stop_recording and import_audio_file answer when there
     /// is no `recording` to call. `keyTerms` is where the key-term tools read and write; with
     /// none they answer with an error. Their token counts use whisper.cpp's tokenizer on the
     /// speech model on disk unless `tokenizer` stands in for it.

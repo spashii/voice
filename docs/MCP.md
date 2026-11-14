@@ -11,7 +11,7 @@ Every request carries `Authorization: Bearer <token>`, from this Mac too; withou
 
 ## Who serves it
 
-Dictate hosts the server while it runs, unless "Agents can read transcripts" in the Agents settings is off. That page sets the host and port (the server restarts when they change), copies or regenerates the token, copies the setup for an agent app, and switches each tool on or off. The tools that start a recording or change stored data are off until someone turns them on (existing choices are kept). A tool that is off is missing from `tools/list` and refuses `tools/call`, for agents already connected too. When Dictate isn't running nothing answers, and the tailnet address returns 502.
+Dictate hosts the server while it runs, unless "Agents can read transcripts" in the Agents settings is off. That page sets the host and port (the server restarts when they change), copies or regenerates the token, copies the setup for an agent app, and switches each tool on or off. Agent access is off for a new install and stays on for an install that had it on. The tools that stop a recording or change stored data are off until someone turns them on (existing choices are kept). No tool starts a recording. A tool that is off is missing from `tools/list` and refuses `tools/call`, for agents already connected too. When Dictate isn't running nothing answers, and the tailnet address returns 502.
 
 `dictate-cli mcp` serves the same thing without the app, against the same database:
 
@@ -65,7 +65,7 @@ Serve terminates TLS and connects from 127.0.0.1, so the token is what keeps oth
 | `import_audio_file` | `path` (absolute, or starting with `~/`): imports an audio or video file from this Mac as one call and returns it at once with `status` transcribing and `file_name`, for `wait_for_transcript` by its id. The transcript is one track (channel mix, no Me or Call labels). Types: m4a, mp3, wav, aif, aiff, aifc, caf, aac, flac, m4b, mp4, mov, m4v; up to 2 GB. A file imported before returns its earlier call with `already_imported` true. Only the app can, so `dictate-cli mcp` answers with an error |
 | `list_dictations` | dictations newest first; `since`, `limit` |
 | `get_dictation` | one dictation with raw and final text, timings and segments, and `fix_edits` when Fix the text before pasting ran: each edit's segment, span, replacement, key_term, offset, and rejected with the reason when it wasn't applied |
-| `start_recording`, `stop_recording` | record a call with the microphone and call audio chosen in Settings, Microphones, and stop it once the last words are transcribed; only the app can, so `dictate-cli mcp` answers with an error |
+| `stop_recording` | stops the call recording in progress and returns it once the last words are transcribed; agents can't start a recording, only a person can; only the app can stop one, so `dictate-cli mcp` answers with an error |
 | `correct_dictation` | `id`, `text`: stores the correction beside the dictation's text, which reads and search then return with `corrected: true` and `original_text`, and pastes nothing |
 | `correct_segment` | `call_id`, `segment_id` (the `id` from `get_transcript` in format segments), `text`: the same for one segment of a call |
 | `list_key_terms` | the key terms from Settings, with the tokens they take of whisper's prompt, counted with whisper.cpp's tokenizer, and its limit of 224 |

@@ -75,7 +75,7 @@ public final class Activation {
         refresh()
     }
 
-    /// Dictation, call recording and an agent's start_recording all ask this.
+    /// Dictation and call recording ask this.
     public var isActivated: Bool { state == .activated }
 
     /// Recomputes the state from the store, which the Keychain can change under the app.

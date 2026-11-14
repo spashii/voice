@@ -7,6 +7,22 @@ public enum AgentSettings {
     public static let disabledToolsKey = "agentDisabledTools"
     public static let hostKey = "agentHost"
     public static let portKey = "agentPort"
+    public static let accessKey = "agentAccess"
+
+    /// Tools that no longer exist. A list stored by an earlier version may still name them;
+    /// they are dropped on the next launch so no switch is left for a tool that isn't there.
+    static let retiredTools: Set<String> = ["start_recording"]
+
+    /// Whether the agent server starts. It is off for a new install. An install that has run
+    /// Dictate before and never stored a choice had it on, so `true` is stored once and its
+    /// agents keep working. A stored choice is never changed. Either result is stored at once,
+    /// so a later launch can't mistake the folder this launch made for an earlier install.
+    @discardableResult
+    public static func settleAccess(in defaults: UserDefaults, existingInstall: Bool) -> Bool {
+        if let stored = defaults.object(forKey: accessKey) as? Bool { return stored }
+        defaults.set(existingInstall, forKey: accessKey)
+        return existingInstall
+    }
 
     /// UserDefaults won't open a suite named after the running bundle, which is the domain
     /// itself in that case.
@@ -22,7 +38,7 @@ public enum AgentSettings {
     /// The off-by-default tools that existed before the seen list did. An install with a stored
     /// disabled list and no seen list saw exactly these; anything added since is new to it.
     static let offByDefaultBeforeSeenList: Set<String> = [
-        "start_recording", "stop_recording", "correct_dictation", "correct_segment",
+        "stop_recording", "correct_dictation", "correct_segment",
         "add_key_terms", "remove_key_terms", "tag_call", "undo_edit",
     ]
 
@@ -37,7 +53,7 @@ public enum AgentSettings {
     /// once, so a second launch can't mistake the folder this launch made for an earlier
     /// install.
     public static func disabledTools(in defaults: UserDefaults, existingInstall: Bool) -> Set<String> {
-        let stored = defaults.stringArray(forKey: disabledToolsKey).map(Set.init)
+        let stored = defaults.stringArray(forKey: disabledToolsKey).map { Set($0).subtracting(retiredTools) }
         let unseen = MCPServer.offByDefault.subtracting(seenTools(in: defaults))
         let disabled: Set<String>
         if let stored {
@@ -45,7 +61,9 @@ public enum AgentSettings {
         } else {
             disabled = existingInstall ? unseen : MCPServer.offByDefault
         }
-        if stored != disabled { defaults.set(disabled.sorted(), forKey: disabledToolsKey) }
+        if defaults.stringArray(forKey: disabledToolsKey).map(Set.init) != disabled {
+            defaults.set(disabled.sorted(), forKey: disabledToolsKey)
+        }
         defaults.set(MCPServer.offByDefault.union(seenTools(in: defaults)).sorted(), forKey: seenToolsKey)
         return disabled
     }
@@ -54,7 +72,7 @@ public enum AgentSettings {
     /// list did, so an existing install with no stored disabled list keeps those on and gets
     /// only the newer ones off.
     private static func seenTools(in defaults: UserDefaults) -> Set<String> {
-        if let seen = defaults.stringArray(forKey: seenToolsKey) { return Set(seen) }
+        if let seen = defaults.stringArray(forKey: seenToolsKey) { return Set(seen).subtracting(retiredTools) }
         return offByDefaultBeforeSeenList
     }
 
@@ -82,6 +100,6 @@ public enum AgentSettings {
     /// never stored any. It never writes them.
     public static func disabledToolsForReading(in defaults: UserDefaults) -> Set<String> {
         guard let stored = defaults.stringArray(forKey: disabledToolsKey) else { return MCPServer.offByDefault }
-        return Set(stored).union(MCPServer.offByDefault.subtracting(seenTools(in: defaults)))
+        return Set(stored).subtracting(retiredTools).union(MCPServer.offByDefault.subtracting(seenTools(in: defaults)))
     }
 }

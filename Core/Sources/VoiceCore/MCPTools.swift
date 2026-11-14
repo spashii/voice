@@ -31,11 +31,11 @@ public struct MCPToolInfo: Sendable, Equatable, Identifiable {
 }
 
 extension MCPServer {
-    /// The tools that start a recording or change stored data. They are off until a person
+    /// The tools that stop a recording or change stored data. They are off until a person
     /// turns them on: what the other side of a call says is read by a connected agent, and
     /// could be written to steer it.
     public static let offByDefault: Set<String> = [
-        "start_recording", "stop_recording", "correct_dictation", "correct_segment",
+        "stop_recording", "correct_dictation", "correct_segment",
         "add_key_terms", "remove_key_terms", "tag_call", "undo_edit", "set_recording_title",
         "import_audio_file",
     ]
@@ -87,6 +87,8 @@ public struct MCPSetup: Sendable, Equatable {
     public var url: String
     public var json: String
     public var command: String
+    /// A message to paste into an agent, saying what to install and how. Holds the token.
+    public var message: String
 
     /// `token` is written as it is, so pass "<token>" for text shown on screen and the real one
     /// for text that is copied. A server bound to 0.0.0.0 is reached on 127.0.0.1 from this Mac.
@@ -104,7 +106,21 @@ public struct MCPSetup: Sendable, Equatable {
               }
             }
             """
-        command = "claude mcp add --transport http dictate \(url) --header \"Authorization: Bearer \(token)\""
+        command = "claude mcp add --transport http --scope user dictate \(url) --header \"Authorization: Bearer \(token)\""
+        message = """
+            Please connect to my Dictate app, which keeps my dictations and call transcripts on this Mac. It is an MCP server.
+
+            Server URL: \(url)
+            Header: Authorization: Bearer \(token)
+
+            In Claude Code, run this command:
+            \(command)
+
+            In any other agent app, add the server to its MCP settings with this JSON:
+            \(json)
+
+            Then start a new session, so the Dictate tools appear.
+            """
     }
 
     /// The JSON, then the command, as one block to paste.

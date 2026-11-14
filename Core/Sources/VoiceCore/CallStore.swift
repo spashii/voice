@@ -767,7 +767,7 @@ public final class CallStore: @unchecked Sendable {
             """),
         // A name a person gave a recording; a call has had one since calls-1.
         ("titles-1", "ALTER TABLE dictations ADD COLUMN title TEXT;"),
-        // Who set the title. Titles that exist were set by a person or by start_recording.
+        // Who set the title. Titles that exist were set by a person or by an agent (set_recording_title).
         ("titles-2", """
             ALTER TABLE calls ADD COLUMN title_source TEXT;
             ALTER TABLE dictations ADD COLUMN title_source TEXT;

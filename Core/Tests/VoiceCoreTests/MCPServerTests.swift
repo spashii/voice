@@ -101,7 +101,7 @@ private struct Fixture {
         let names = (tools["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String } ?? []
         #expect(Set(names) == ["list_calls", "get_call", "get_transcript", "current_call", "wait_for_transcript",
                                "search_transcripts", "tag_call", "list_dictations", "get_dictation",
-                               "start_recording", "stop_recording", "correct_dictation", "correct_segment",
+                               "stop_recording", "correct_dictation", "correct_segment",
                                "list_key_terms", "add_key_terms", "remove_key_terms", "list_key_term_suggestions",
                                "list_edits", "undo_edit", "set_recording_title", "import_audio_file"])
         #expect(try await fixture.rpc("ping")["result"] != nil)
@@ -165,7 +165,7 @@ private struct Fixture {
         #expect(isError)
         #expect(missing == "No call nope.")
 
-        let (recording, recordingError) = try await fixture.tool("start_recording")
+        let (recording, recordingError) = try await fixture.tool("stop_recording")
         #expect(recordingError)
         #expect(recording.contains("only available in the Dictate app"))
 

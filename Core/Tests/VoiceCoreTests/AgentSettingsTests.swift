@@ -59,6 +59,35 @@ import Testing
         #expect(AgentSettings.disabledTools(in: store, existingInstall: true).isEmpty)
     }
 
+    @Test func agentAccessIsOffForANewInstallAndStaysSo() {
+        let store = defaults()
+        #expect(!AgentSettings.settleAccess(in: store, existingInstall: false))
+        #expect(store.object(forKey: AgentSettings.accessKey) as? Bool == false)
+        // The folder the first launch made must not turn it on at the next one.
+        #expect(!AgentSettings.settleAccess(in: store, existingInstall: true))
+    }
+
+    @Test func anExistingInstallWithNoChoiceGetsAccessOnceAndKeepsItsOwnChoice() {
+        let store = defaults()
+        #expect(AgentSettings.settleAccess(in: store, existingInstall: true))
+        #expect(store.object(forKey: AgentSettings.accessKey) as? Bool == true)
+        store.set(false, forKey: AgentSettings.accessKey)
+        #expect(!AgentSettings.settleAccess(in: store, existingInstall: true))
+    }
+
+    @Test func startRecordingIsDroppedFromStoredListsAndNoSwitchIsLeft() {
+        let store = defaults()
+        store.set(["start_recording", "list_calls"], forKey: AgentSettings.disabledToolsKey)
+        store.set(["start_recording", "stop_recording"], forKey: AgentSettings.seenToolsKey)
+        let disabled = AgentSettings.disabledTools(in: store, existingInstall: true)
+        #expect(!disabled.contains("start_recording"))
+        #expect(disabled.contains("list_calls"))
+        #expect(store.stringArray(forKey: AgentSettings.disabledToolsKey)?.contains("start_recording") == false)
+        #expect(store.stringArray(forKey: AgentSettings.seenToolsKey)?.contains("start_recording") == false)
+        #expect(!MCPServer.toolCatalog.map(\.name).contains("start_recording"))
+        #expect(!AgentSettings.disabledToolsForReading(in: store).contains("start_recording"))
+    }
+
     @Test func eitherDataFolderMeansAnExistingInstall() throws {
         let name = "dictate-tests-\(UUID().uuidString)"
         let store = defaults(named: name)

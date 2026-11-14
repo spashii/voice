@@ -285,16 +285,6 @@ struct MCPRouter: Sendable {
             }
             return try Self.json(try Self.plain(undo))
 
-        case "start_recording":
-            guard let recording else { throw ToolError(recordingUnavailable) }
-            let title = try args.string("title")
-            var call = try await recording.startRecording(title: title)
-            // Core stores a title given at the start as a person's; this one is the agent's.
-            if title != nil, call.title != nil, try store.setTitleSource(call.id, .agent) {
-                call.titleSource = .agent
-            }
-            return try Self.json(try Self.plain(call))
-
         case "stop_recording":
             guard let recording else { throw ToolError(recordingUnavailable) }
             let call = try await recording.stopRecording()
@@ -437,8 +427,6 @@ struct MCPRouter: Sendable {
                  "Undo one edit by its id. A correction goes back to the text before it. A key term or tag change is reverted. A dismissed key term suggestion is pending again. The undo is recorded as an edit too.",
                  ["id": ["type": "integer", "minimum": 1, "description": "The edit's id from list_edits."]],
                  required: ["id"], readOnly: false),
-            tool("start_recording", "Start recording a call in the Dictate app and get the new call's id.",
-                 ["title": ["type": "string", "description": "A title for the call."]], readOnly: false),
             tool("stop_recording", "Stop the call recording in progress in the Dictate app.", readOnly: false),
         ]
     }

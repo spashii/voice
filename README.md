@@ -8,7 +8,7 @@ Fast local dictation and call transcription for Mac. Dictate types what you say 
 - You and the call, kept apart: Dictate asks you before it records. Your microphone and the call's audio are recorded separately, so every line is labeled Me or Call.
 - Retry unsure words: Whisper scores each part. Dictate transcribes the unsure parts again and keeps the better version. Fix the text before pasting sends the text to a model on this Mac to correct misheard words. That model is Apple Intelligence or Ollama. It is off until you turn it on.
 - Key terms: add the names Whisper gets wrong, spelled your way. Correct a name in History and it becomes a key term.
-- Your agents can read it: Claude Code or any MCP client can search your dictations and calls. Tools that record or change anything start off.
+- Your agents can read it: Claude Code or any MCP client can search your dictations and calls. Agent access is off until you turn it on, and tools that change anything start off. Agents can't start a recording.
 
 ## Get it
 

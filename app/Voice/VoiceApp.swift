@@ -51,7 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         if let renamed = BundleRename.renameIfNeeded() { BundleRename.relaunchAndExit(renamed) }
         guard OtherInstance.ensureSole() else { exit(0) }
-        _ = AgentSettings.disabledTools(in: .standard, existingInstall: AgentSettings.isExistingInstall())
+        let existingInstall = AgentSettings.isExistingInstall()
+        _ = AgentSettings.disabledTools(in: .standard, existingInstall: existingInstall)
+        // A development build never runs the server on its own: it would fight the installed app for the port.
+        if !BuildFlavor.isDev { AgentSettings.settleAccess(in: .standard, existingInstall: existingInstall) }
         migration = DataMigration.run()
         #if DEBUG
         if let activation = DevFreshInstall.activation() {

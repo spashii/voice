@@ -23,7 +23,6 @@ private final class FakeRecording: RecordingControl, @unchecked Sendable {
         recorder = CallRecorder(store: store, directory: directory)
     }
 
-    func startRecording(title: String?) async throws -> Call { throw ToolError("not used") }
     func stopRecording() async throws -> Call { throw ToolError("not used") }
 
     func importAudioFile(path: String) async throws -> CallRecorder.ImportStart {

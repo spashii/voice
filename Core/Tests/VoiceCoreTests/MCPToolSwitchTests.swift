@@ -42,10 +42,17 @@ import Testing
         #expect(names.contains("list_calls"))
     }
 
+    @Test func startRecordingIsNotAToolAndCallingItIsRefused() async throws {
+        let router = try router()
+        #expect(!(try await listed(router)).contains("start_recording"))
+        let reply = try await send(router, "tools/call", ["name": "start_recording", "arguments": [String: Any]()])
+        #expect(reply["error"] != nil)
+    }
+
     @Test func aDisabledToolIsAbsentFromTheList() async throws {
-        let names = try await listed(try router(disabled: ["list_calls", "start_recording"]))
+        let names = try await listed(try router(disabled: ["list_calls", "tag_call"]))
         #expect(!names.contains("list_calls"))
-        #expect(!names.contains("start_recording"))
+        #expect(!names.contains("tag_call"))
         #expect(names.contains("get_call"))
     }
 
@@ -188,10 +195,20 @@ import Testing
 }
 
 @Suite struct MCPSetupTests {
+    @Test func theSetupMessageHasTheUrlTokenCommandJSONAndTheNewSessionStep() {
+        let message = MCPSetup(host: "127.0.0.1", port: 8123, token: "abc123").message
+        #expect(message.contains("http://127.0.0.1:8123/mcp"))
+        #expect(message.contains("Authorization: Bearer abc123"))
+        #expect(message.contains("claude mcp add --transport http --scope user dictate"))
+        #expect(message.contains("\"mcpServers\""))
+        #expect(message.contains("start a new session"))
+        #expect(!message.contains("\u{2014}"))
+    }
+
     @Test func fillsInTheRealHostPortAndToken() throws {
         let setup = MCPSetup(host: "127.0.0.1", port: 8123, token: "abc123")
         #expect(setup.url == "http://127.0.0.1:8123/mcp")
-        #expect(setup.command == "claude mcp add --transport http dictate http://127.0.0.1:8123/mcp --header \"Authorization: Bearer abc123\"")
+        #expect(setup.command == "claude mcp add --transport http --scope user dictate http://127.0.0.1:8123/mcp --header \"Authorization: Bearer abc123\"")
         let object = try #require(JSONSerialization.jsonObject(with: Data(setup.json.utf8)) as? [String: Any])
         let servers = try #require(object["mcpServers"] as? [String: Any])
         let dictate = try #require(servers["dictate"] as? [String: Any])

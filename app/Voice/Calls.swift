@@ -297,7 +297,6 @@ final class CallsModel {
 
     func record(_ app: DetectedCall? = nil, title: String? = nil) async throws -> Call {
         guard let recorder, let model else { throw VoiceError.store("Dictate is still starting.") }
-        // Also the way in for an agent's start_recording, which has no pill to show.
         try RecordingGate.check(model.activation)
         if let recording { return recording }
         guard !starting else { throw VoiceError.store("A call recording is already starting.") }
@@ -643,10 +642,6 @@ final class CallsModel {
 }
 
 extension CallsModel: RecordingControl {
-    nonisolated func startRecording(title: String?) async throws -> Call {
-        try await record(title: title)
-    }
-
     nonisolated func stopRecording() async throws -> Call {
         guard let call = await stop() else { throw VoiceError.store("No call is being recorded.") }
         return call
@@ -831,6 +826,10 @@ struct CallPromptView: View {
 
     /// Under the question, so the person knows nothing is recorded unless they say so.
     static let note = "Ask before you record."
+    /// What Copy notice puts on the clipboard, to paste into the call's chat.
+    static let notice = "This call is being transcribed by Dictate, on my Mac only."
+
+    @State private var noticeCopied = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -842,10 +841,18 @@ struct CallPromptView: View {
                         Text(app.name).foregroundStyle(.secondary).lineLimit(1)
                     }
                     .font(.system(size: 12, weight: .medium))
-                    Text(Self.note)
-                        .lineLimit(1)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        Text(Self.note)
+                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
+                        Button(noticeCopied ? "Copied" : "Copy notice") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(Self.notice, forType: .string)
+                            noticeCopied = true
+                        }
+                        .buttonStyle(.link)
+                    }
+                    .font(.system(size: 11))
                 }
                 Spacer(minLength: 4)
                 Button("Not now") { calls.notNow(app) }

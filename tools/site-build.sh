@@ -27,8 +27,11 @@ for loc in $(grep -o '<loc>[^<]*' "$out/sitemap.xml" | sed 's/<loc>//'); do
   sed -i "s#<loc>${loc}</loc>#<loc>${loc}</loc><lastmod>${d}</lastmod>#" "$out/sitemap.xml"
 done
 
-# Only for Cloudflare Pages: the project's own pages.dev hosts (production and previews) stay out of search.
+# Only for Cloudflare Pages: the project's pages.dev hosts (production and previews) and the staging host
+# serve the same pages, so they stay out of search.
 cat > "$out/_headers" <<'H'
 https://:project.pages.dev/*
+  X-Robots-Tag: noindex
+https://staging.dictate.tech/*
   X-Robots-Tag: noindex
 H

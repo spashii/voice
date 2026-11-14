@@ -12,7 +12,7 @@ Fast local dictation and call transcription for Mac. Dictate types what you say 
 
 ## Get it
 
-Download Dictate from [spashii.github.io/dictate](https://spashii.github.io/dictate/), open the DMG and drag it to Applications. Activate it once with your email and a code. It is free forever for the first 50 early access users. After early access, a lifetime license is $49 or €49.
+Download Dictate from [spashii.github.io/dictate](https://spashii.github.io/dictate/), open the DMG and drag it to Applications. Activate it once with your email and a code. It is free forever for the first 50 early access users. The next 50 pay $25 or €25, then a lifetime license is $49 or €49.
 
 ## Requirements
 

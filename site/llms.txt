@@ -2,7 +2,7 @@
 
 > Dictate is fast local dictation and call transcription for Mac. It types what you say into any app and transcribes your online calls with your side and theirs kept apart. It runs on your Mac, and no bot joins the call. Apple silicon, macOS 15 or later.
 
-- Price: free forever for the first 50 early access users. After early access, a regular lifetime license is $49 (€49 by region).
+- Price: free forever for the first 50 early access users. The next 50 pay $25, then a lifetime license is $49. Prices are in euros in Europe.
 - Activation: you activate each Mac once in your browser with your email and a code. The app does not sign in and does not report what you do.
 - Dictation: press Option and backtick and talk. Press again and the text lands in the app you were writing in.
 - Calls: Dictate asks you before it records. It records your microphone and the call's audio separately, so every line is labeled Me or Call. Works with Zoom, Teams, Slack, Discord, FaceTime, WhatsApp, Signal, Telegram, Webex, Skype, Element and calls in a browser tab.
@@ -27,3 +27,4 @@
 - [Granola alternative without the cloud](https://spashii.github.io/dictate/granola-alternative/)
 - [How to transcribe online calls on a Mac, locally](https://spashii.github.io/dictate/transcribe-calls-on-mac/)
 - [MacWhisper alternative for dictation and calls](https://spashii.github.io/dictate/macwhisper-alternative/)
+- [Superwhisper alternative for dictation and calls](https://spashii.github.io/dictate/superwhisper-alternative/)

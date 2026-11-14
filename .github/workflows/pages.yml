@@ -24,6 +24,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       # Pages caches every file for 10 minutes, so each deploy must name its own CSS and JS.
       - name: Version local CSS and JS by commit
         shell: bash
@@ -34,6 +36,17 @@ jobs:
             echo "unreplaced __V__ placeholder" >&2
             exit 1
           fi
+      # Google uses lastmod to decide when to crawl a page again, so each entry carries its page's last commit date.
+      - name: Date each sitemap entry
+        shell: bash
+        run: |
+          for loc in $(grep -o '<loc>[^<]*' site/sitemap.xml | sed 's/<loc>//'); do
+            f="site/${loc#https://spashii.github.io/dictate/}"
+            case "$f" in */) f="${f}index.html" ;; esac
+            d="$(git log -1 --format=%cs -- "$f")"
+            if [ -z "$d" ]; then echo "no commit for $f" >&2; exit 1; fi
+            sed -i "s#<loc>${loc}</loc>#<loc>${loc}</loc><lastmod>${d}</lastmod>#" site/sitemap.xml
+          done
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

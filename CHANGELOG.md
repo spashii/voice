@@ -8,7 +8,7 @@ the entry for VERSION into the update feed, which Sparkle shows before installin
 stops when VERSION has no entry here.
 -->
 
-## 0.15.3 (2026-11-14)
+## 0.15.3
 
 - **Dictate shows itself on first launch.** Welcome comes to the front, and opening Dictate again from Spotlight or Finder brings the right window up. Until you activate, Dictate keeps its Dock icon.
 - **After an update.** Settings opens on About if you chose the update. If it installed on its own, a pill says Updated to the new version.

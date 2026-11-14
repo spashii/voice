@@ -53,7 +53,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard OtherInstance.ensureSole() else { exit(0) }
         _ = AgentSettings.disabledTools(in: .standard, existingInstall: AgentSettings.isExistingInstall())
         migration = DataMigration.run()
+        #if DEBUG
+        if let activation = DevFreshInstall.activation() {
+            model = AppModel(activation: activation)
+        } else {
+            model = AppModel()
+        }
+        #else
         model = AppModel()
+        #endif
         calls = CallsModel()
         super.init()
     }
@@ -82,12 +90,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.agents.keyTerms = PreferencesKeyTerms(preferences: model.preferences)
         model.calls = calls
         CommonWords.onMainThread.isSet = true
+        windows.isActivated = { [model] in model.activation.isActivated }
         windows.start()
+        model.onActivationChange = { [windows] in windows.settle(closing: nil) }
+        // Until activation Dictate keeps its Dock icon. Set before the first window opens, so
+        // the launch the person asked for activates it like any other app.
+        windows.settle(closing: nil)
         if migration == .bothExist { explainBothFolders() }
         model.launch()
         calls.launch(model: model)
         // After both shortcut handlers exist, so a locked Dictate registers neither.
         model.applyLock(force: true)
+        model.announceUpdateIfNeeded()
+    }
+
+    /// Opening Dictate again from Spotlight or Finder, or clicking its Dock icon, shows a
+    /// window. Returns false: the default would only unhide windows that are not there.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        let ours = WindowActivation.isOurOwnReopen
+        DevLog.write("reopen visibleWindows=\(flag) ours=\(ours)")
+        if !ours { model.reopen() }
+        return false
     }
 
     /// Both Application Support/Voice and Dictate exist, so nothing was moved. Said once, with

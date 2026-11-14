@@ -8,6 +8,12 @@ the entry for VERSION into the update feed, which Sparkle shows before installin
 stops when VERSION has no entry here.
 -->
 
+## 0.15.3 (2026-11-14)
+
+- **Dictate shows itself on first launch.** Welcome comes to the front, and opening Dictate again from Spotlight or Finder brings the right window up. Until you activate, Dictate keeps its Dock icon.
+- **After an update.** Settings opens on About if you chose the update. If it installed on its own, a pill says Updated to the new version.
+- **Send feedback.** About shows your activation ID with a Copy button. Send Feedback… in About or the menu bar menu opens a short form in your browser.
+
 ## 0.15.2 (2026-11-13)
 
 - **Data retention.** Dictate deletes audio after 7 days and history after 30 days. You can change both in Settings, Setup. Developer mode keeps everything and asks before deleting when you turn it off.

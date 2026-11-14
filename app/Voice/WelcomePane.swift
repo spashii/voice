@@ -1,3 +1,4 @@
+import KeyboardShortcuts
 import SwiftUI
 
 /// The first thing a Mac sees until it is activated, including an install that just updated.
@@ -14,6 +15,9 @@ struct WelcomePane: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             Text("Activate once with your email. It opens in your browser.")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Text(FirstLaunch.menuBarLine(shortcut: KeyboardShortcuts.getShortcut(for: .dictate)?.description))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             if let problem = model.activationProblem {

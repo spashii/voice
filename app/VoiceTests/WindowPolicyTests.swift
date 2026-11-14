@@ -11,6 +11,13 @@ final class WindowPolicyTests: XCTestCase {
         XCTAssertEqual(WindowPolicy.policy(openWindows: 0), .accessory)
     }
 
+    /// Until activation the Dock icon stays, so a closed Welcome can be brought back from it.
+    func testBeforeActivationTheDockIconStaysWithoutWindows() {
+        XCTAssertEqual(WindowPolicy.policy(openWindows: 0, activated: false), .regular)
+        XCTAssertEqual(WindowPolicy.policy(openWindows: 0, activated: true), .accessory)
+        XCTAssertEqual(WindowPolicy.policy(openWindows: 1, activated: true), .regular)
+    }
+
     func testAnyWindowMeansDockIcon() {
         XCTAssertEqual(WindowPolicy.policy(openWindows: 1), .regular)
         XCTAssertEqual(WindowPolicy.policy(openWindows: 3), .regular)

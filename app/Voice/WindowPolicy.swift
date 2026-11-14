@@ -2,7 +2,8 @@ import AppKit
 
 /// Dictate lives in the menu bar and has no Dock icon, until it opens a window: then it is an
 /// ordinary app, so the window comes forward and can be found in the Dock and the app
-/// switcher. When the last window closes it goes back to the menu bar.
+/// switcher. When the last window closes it goes back to the menu bar, except before
+/// activation: until then the Dock icon stays, so a closed Welcome can be brought back.
 enum WindowPolicy {
     /// What decides whether a window counts, read off the NSWindow so the rule can be tested.
     struct Info {
@@ -28,8 +29,8 @@ enum WindowPolicy {
         className.hasPrefix("SU") || className.hasPrefix("SPU") || className.contains("Alert")
     }
 
-    static func policy(openWindows: Int) -> NSApplication.ActivationPolicy {
-        openWindows > 0 ? .regular : .accessory
+    static func policy(openWindows: Int, activated: Bool = true) -> NSApplication.ActivationPolicy {
+        openWindows > 0 || !activated ? .regular : .accessory
     }
 }
 
@@ -37,6 +38,8 @@ enum WindowPolicy {
 @MainActor
 final class WindowActivation {
     private var observers: [NSObjectProtocol] = []
+    /// Read each time the policy is decided; false keeps the Dock icon.
+    var isActivated: () -> Bool = { true }
 
     func start() {
         let center = NotificationCenter.default
@@ -60,17 +63,42 @@ final class WindowActivation {
 
     /// Opens the Dock icon and brings the app forward. The policy has to be regular before
     /// the activation, or an accessory app is left behind the app that was in front.
+    ///
+    /// Since macOS 14 an app comes forward only when the active app yields or the system hands
+    /// it the activation. An app that starts as a menu bar app is launched without one, and
+    /// NSApp.activate() alone leaves its window behind the app that was in front. Asking
+    /// Launch Services to open the app again makes the system activate it.
     static func bringForward() {
         if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activate()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard !NSApp.isActive else { return }
+            askSystemToActivate()
+        }
+    }
+
+    private static var lastAsked = Date.distantPast
+
+    /// True for the reopen event that askSystemToActivate causes. The window it was asked for is
+    /// already open, so the delegate leaves it alone instead of switching its pane. Asking at
+    /// most once a second also keeps the two from looping.
+    static var isOurOwnReopen: Bool { Date().timeIntervalSince(lastAsked) < 1.5 }
+
+    private static func askSystemToActivate() {
+        guard Date().timeIntervalSince(lastAsked) > 1 else { return }
+        lastAsked = Date()
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration)
     }
 
     /// Back to the menu bar once no window is left. A window that is closing still reads as
     /// visible while its notification runs, so it is left out of the count.
     func settle(closing: NSWindow?) {
         let open = NSApp.windows.filter { $0 !== closing && Self.counts($0) }.count
-        let policy = WindowPolicy.policy(openWindows: open)
-        if NSApp.activationPolicy() != policy { NSApp.setActivationPolicy(policy) }
+        let policy = WindowPolicy.policy(openWindows: open, activated: isActivated())
+        guard NSApp.activationPolicy() != policy else { return }
+        NSApp.setActivationPolicy(policy)
     }
 
     private static func counts(_ window: NSWindow) -> Bool {

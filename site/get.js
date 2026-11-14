@@ -14,7 +14,7 @@
    (localhost and the tailnet) can add ?spots=0 to show that sold-out state without the fetch. */
 (function () {
   var STEPS = ["Open the DMG and drag Dictate to Applications.", "Open Dictate.", "In the window Dictate opens, press Activate in Browser."];
-  var FOUNDING = "https://dictate.firstversion.in/api/activate/founding";
+  var FOUNDING = "https://dictate.tech/api/activate/founding";
   // Preview hosts can show the sold-out state with ?spots=0 and use the Turnstile test key; production ignores both.
   var PREVIEW = /^(localhost|127\.0\.0\.1)$|\.ts\.net$/.test(location.hostname);
 
@@ -84,7 +84,7 @@
     }).catch(function () {});
   }
 
-  var LAUNCH = "https://dictate.firstversion.in/api/launch-list";
+  var LAUNCH = "https://dictate.tech/api/launch-list";
   var SITEKEY = PREVIEW ? "1x00000000000000000000AA" : "0x4AAAAAAF-MEHP47FLn7LEY";
   var NOTIFY_ERRORS = {
     bad_email: "That email address does not look right.",

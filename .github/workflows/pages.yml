@@ -1,10 +1,11 @@
 name: Site
 
-# Publishes site/ to GitHub Pages whenever it changes on main.
+# Publishes site/ to GitHub Pages whenever it changes on main. The site's home is dictate.tech
+# (cloudflare-pages.yml); this copy keeps the old spashii.github.io/dictate/ links working.
 on:
   push:
     branches: [main]
-    paths: ["site/**"]
+    paths: ["site/**", "tools/site-build.sh"]
   workflow_dispatch:
 
 permissions:
@@ -26,30 +27,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      # Pages caches every file for 10 minutes, so each deploy must name its own CSS and JS.
-      - name: Version local CSS and JS by commit
-        shell: bash
+      # Same build as dictate.tech, so this copy matches it; _headers is Cloudflare's alone.
+      - name: Build
         run: |
-          v="$(git rev-parse --short HEAD)"
-          find site -name '*.html' -exec sed -i "s/__V__/${v}/g" {} +
-          if grep -rn '__V__' site; then
-            echo "unreplaced __V__ placeholder" >&2
-            exit 1
-          fi
-      # Google uses lastmod to decide when to crawl a page again, so each entry carries its page's last commit date.
-      - name: Date each sitemap entry
-        shell: bash
-        run: |
-          for loc in $(grep -o '<loc>[^<]*' site/sitemap.xml | sed 's/<loc>//'); do
-            f="site/${loc#https://spashii.github.io/dictate/}"
-            case "$f" in */) f="${f}index.html" ;; esac
-            d="$(git log -1 --format=%cs -- "$f")"
-            if [ -z "$d" ]; then echo "no commit for $f" >&2; exit 1; fi
-            sed -i "s#<loc>${loc}</loc>#<loc>${loc}</loc><lastmod>${d}</lastmod>#" site/sitemap.xml
-          done
+          tools/site-build.sh _site
+          rm _site/_headers
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

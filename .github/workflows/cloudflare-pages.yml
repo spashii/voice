@@ -1,0 +1,38 @@
+name: Site on dictate.tech
+
+# Publishes site/ to the Cloudflare Pages project "dictate" (dictate.tech) whenever it changes on main.
+# The worker dictate-web answers /get, /api/*, /feedback, /d/*, /download/* and /activate on the same host.
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", "tools/site-build.sh", ".github/workflows/cloudflare-pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: dictate.tech
+      url: https://dictate.tech/
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        run: tools/site-build.sh "$RUNNER_TEMP/site"
+      # The token can edit Cloudflare Pages in this account and nothing else.
+      - name: Deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_PAGES_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ac53e2c9047fd16fe5e94aef5c772a59
+        run: >
+          npx --yes wrangler@3.114.17 pages deploy "$RUNNER_TEMP/site"
+          --project-name dictate --branch main
+          --commit-hash "$GITHUB_SHA" --commit-message "$(git log -1 --format=%s)"

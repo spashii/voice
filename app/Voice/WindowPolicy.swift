@@ -65,19 +65,31 @@ final class WindowActivation {
     /// the activation, or an accessory app is left behind the app that was in front.
     ///
     /// Since macOS 14 an app comes forward only when the active app yields or the system hands
-    /// it the activation, which it does for a launch the person asked for. The request is made
-    /// again on the next turns of the run loop, because the first can land before the policy
-    /// change has taken effect and leave the window behind the app that was in front.
+    /// it the activation. An app that starts as a menu bar app is launched without one, and
+    /// NSApp.activate() alone leaves its window behind the app that was in front. Asking
+    /// Launch Services to open the app again makes the system activate it.
     static func bringForward() {
         if NSApp.activationPolicy() != .regular { NSApp.setActivationPolicy(.regular) }
         NSApp.activate()
-        for delay in [0.05, 0.4] {
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                guard !NSApp.isActive else { return }
-                NSApp.activate()
-                NSRunningApplication.current.activate(options: [.activateAllWindows])
-            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            guard !NSApp.isActive else { return }
+            askSystemToActivate()
         }
+    }
+
+    private static var lastAsked = Date.distantPast
+
+    /// True for the reopen event that askSystemToActivate causes. The window it was asked for is
+    /// already open, so the delegate leaves it alone instead of switching its pane. Asking at
+    /// most once a second also keeps the two from looping.
+    static var isOurOwnReopen: Bool { Date().timeIntervalSince(lastAsked) < 1.5 }
+
+    private static func askSystemToActivate() {
+        guard Date().timeIntervalSince(lastAsked) > 1 else { return }
+        lastAsked = Date()
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration)
     }
 
     /// Back to the menu bar once no window is left. A window that is closing still reads as

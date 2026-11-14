@@ -54,10 +54,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = AgentSettings.disabledTools(in: .standard, existingInstall: AgentSettings.isExistingInstall())
         migration = DataMigration.run()
         #if DEBUG
-        // A development build can start as a Mac that was never activated, without reading or
-        // writing the Keychain item of an installed Dictate: -DictateFreshInstall YES.
-        if BuildFlavor.isDev, UserDefaults.standard.bool(forKey: "DictateFreshInstall") {
-            model = AppModel(activation: Activation(store: MemoryActivationStore()))
+        if let activation = DevFreshInstall.activation() {
+            model = AppModel(activation: activation)
         } else {
             model = AppModel()
         }
@@ -109,8 +107,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Opening Dictate again from Spotlight or Finder, or clicking its Dock icon, shows a
     /// window. Returns false: the default would only unhide windows that are not there.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        DevLog.write("reopen visibleWindows=\(flag)")
-        model.reopen()
+        let ours = WindowActivation.isOurOwnReopen
+        DevLog.write("reopen visibleWindows=\(flag) ours=\(ours)")
+        if !ours { model.reopen() }
         return false
     }
 

@@ -734,6 +734,7 @@ final class AppModel {
                                                     activated: activation.isActivated)
         defaults.set(current, forKey: FirstLaunch.lastLaunchedKey)
         defaults.removeObject(forKey: FirstLaunch.chosenUpdateKey)
+        DevLog.write("update announcement \(announcement)")
         switch announcement {
         case .none: break
         case .about: openMainWindow(.about)

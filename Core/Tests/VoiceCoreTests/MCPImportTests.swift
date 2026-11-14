@@ -112,16 +112,16 @@ private final class FakeRecording: RecordingControl, @unchecked Sendable {
     @Test func anInstallFromBeforeItGetsItOffAndKeepsItsOwnChoices() {
         let defaults = UserDefaults(suiteName: "dictate-tests-\(UUID().uuidString)")!
         // 0.14: the person turned set_recording_title on, so it is not in the list, but it is seen.
-        defaults.set(["start_recording", "list_calls"], forKey: AgentSettings.disabledToolsKey)
+        defaults.set(["tag_call", "list_calls"], forKey: AgentSettings.disabledToolsKey)
         defaults.set(MCPServer.offByDefault.subtracting(["import_audio_file"]).sorted(), forKey: AgentSettings.seenToolsKey)
         let disabled = AgentSettings.disabledTools(in: defaults, existingInstall: true)
-        #expect(disabled == ["start_recording", "list_calls", "import_audio_file"])
+        #expect(disabled == ["tag_call", "list_calls", "import_audio_file"])
         #expect(Set(defaults.stringArray(forKey: AgentSettings.seenToolsKey) ?? []) == MCPServer.offByDefault)
     }
 
     @Test func aPersonWhoTurnedItOnKeepsItOn() {
         let defaults = UserDefaults(suiteName: "dictate-tests-\(UUID().uuidString)")!
-        defaults.set(["start_recording"], forKey: AgentSettings.disabledToolsKey)
+        defaults.set(["tag_call"], forKey: AgentSettings.disabledToolsKey)
         defaults.set(MCPServer.offByDefault.sorted(), forKey: AgentSettings.seenToolsKey)
         #expect(!AgentSettings.disabledTools(in: defaults, existingInstall: true).contains("import_audio_file"))
     }

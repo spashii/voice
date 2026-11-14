@@ -61,6 +61,8 @@ public final class Activation {
     @ObservationIgnored private let makeNonce: () -> String
 
     public private(set) var state: State = .locked
+    /// Shown in About and sent with feedback; nil until this Mac is activated.
+    public private(set) var activationID: String?
 
     public init(store: ActivationStore, defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
                 keys: [String: Curve25519.Signing.PublicKey] = ActivationKeys.all,
@@ -78,10 +80,12 @@ public final class Activation {
 
     /// Recomputes the state from the store, which the Keychain can change under the app.
     public func refresh() {
-        if let text = store.load().token, (try? ActivationToken.verify(text, keys: keys)) != nil {
+        if let text = store.load().token, let token = try? ActivationToken.verify(text, keys: keys) {
             state = .activated
+            activationID = ActivationID.make(signupID: token.signupID)
         } else {
             state = .locked
+            activationID = nil
         }
     }
 
